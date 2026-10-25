@@ -6,7 +6,7 @@ const path = require('node:path');
 const C = require('./ai-constants');
 const { LIMITS, MSG } = C;
 const { requestCompletion } = require('./openrouter');
-const { checkInput, refusalFor, sanitizeOutput } = require('./safety');
+const { checkInput, refusalFor, sanitizeOutput, assessReply } = require('./safety');
 const { createContextStore } = require('./context-store');
 const { createUsage, writeJsonAtomic } = require('./usage');
 
@@ -35,6 +35,7 @@ function createAiService(opts = {}) {
   const {
     apiKey = '',
     ownerId = '',
+    chatChannelId = '',
     discordToken = '',
     runDir,
     now = Date.now,
@@ -176,8 +177,11 @@ function createAiService(opts = {}) {
     beginDemo(startMs, endMs);
     log(`ai demo started start=${new Date(startMs).toISOString()} end=${new Date(endMs).toISOString()}`);
     const epoch = Math.floor(endMs / 1000);
+    const how = chatChannelId
+      ? `Chat with me in <#${chatChannelId}> without a mention, or mention me in any other channel with your question`
+      : 'Mention me in a server message with your question';
     return payload(
-      `My AI lantern is lit! Mention me in a server message with your question until ${formatManila(endMs)} (<t:${epoch}:t>, <t:${epoch}:R>).\n\n` +
+      `My AI lantern is lit! ${how} until ${formatManila(endMs)} (<t:${epoch}:t>, <t:${epoch}:R>).\n\n` +
         `Limits: ${LIMITS.perUserPerMinute} chats per person per minute, ${LIMITS.perUserPerSession} per person this session, ${LIMITS.globalPerDay} per day for everyone. ` +
         `I only remember your last ${LIMITS.contextMessages} messages, in memory, and **/forget** wipes them.\n` +
         MSG.privacy,
@@ -246,7 +250,12 @@ function createAiService(opts = {}) {
   }
 
   function logAttempt(r, attempt) {
-    const model = r.ok ? ` model=${r.model || 'unknown'}` : '';
+    const extra = r.ok
+      ? (r.finishReason ? ` finish=${r.finishReason}` : '') +
+        (r.usage && r.usage.completion !== null && r.usage.completion !== undefined ? ` completion_tokens=${r.usage.completion}` : '') +
+        (r.usage && r.usage.reasoning ? ` reasoning_tokens=${r.usage.reasoning}` : '')
+      : '';
+    const model = r.ok ? ` model=${r.model || 'unknown'}${extra}` : '';
     const outcome = r.ok ? 'success' : `failure category=${r.category} status=${r.status}`;
     log(`ai request attempt=${attempt} ${outcome} latency=${r.latencyMs}ms${model} today=${usage.count()}/${usage.limit}`);
     if (r.ok && r.model && !/:free$/.test(r.model) && r.model !== C.MODEL) {
@@ -320,29 +329,41 @@ function createAiService(opts = {}) {
       while (convo.length && convo[0].role !== 'user') convo.shift();
       const messages = [{ role: 'system', content: C.SYSTEM_PROMPT }, ...convo];
 
-      let result = await requestCompletion({ fetchImpl, apiKey, messages, timeoutMs, now });
-      if (result.notSent) release(userId);
-      logAttempt(result, 1);
+      const ask = async (attemptNo) => {
+        const r = await requestCompletion({ fetchImpl, apiKey, messages, timeoutMs, now });
+        if (r.notSent) release(userId);
+        logAttempt(r, attemptNo);
+        return r;
+      };
+      const assess = (r) => {
+        const a = assessReply(r.text, r.model);
+        if (!a.usable) log(`ai response unusable reason=${a.reason}`);
+        return a;
+      };
 
-      if (!result.ok && result.transient && !result.notSent) {
-        // At most ONE automatic retry, only for network/timeout/5xx, and only if limits still allow it.
-        if (canReserve(userId) && reserve(userId).ok) {
-          await sleep(retryDelayMs);
-          result = await requestCompletion({ fetchImpl, apiKey, messages, timeoutMs, now });
-          if (result.notSent) release(userId);
-          logAttempt(result, 2);
-        }
+      let result = await ask(1);
+      let verdict = result.ok ? assess(result) : null;
+
+      // At most ONE extra attempt per message, counted like any request (per-minute, session, daily):
+      //  - a retry after a network error / timeout / 5xx (never for 4xx), or
+      //  - one re-ask when the reply is unusable (empty, guard/classifier model or classifier-shaped output).
+      const wantRetry = result.ok ? !verdict.usable : result.transient && !result.notSent;
+      if (wantRetry && canReserve(userId) && reserve(userId).ok) {
+        await sleep(retryDelayMs);
+        result = await ask(2);
+        verdict = result.ok ? assess(result) : null;
       }
 
       if (!result.ok) {
         haltFor(result.category);
         return await reply(payload(MSG.unavailable));
       }
+      if (!verdict.usable) return await reply(payload(MSG.noWords));
 
       // The session may have ended (or the member may have run /forget) while we waited.
       if (!demo || demo.id !== sessionId) return await reply(payload(MSG.disabled));
 
-      const clean = sanitizeOutput(result.text, secrets);
+      const clean = sanitizeOutput(verdict.text, secrets);
       if (store.version() === versionAtStart) store.appendTurn(userId, text, clean);
       let out = clean;
       if (!introduced.has(userId)) {

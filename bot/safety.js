@@ -98,4 +98,33 @@ function sanitizeOutput(raw, secrets = []) {
   return t.trim() ? t : C.MSG.emptyOutput;
 }
 
-module.exports = { checkInput, refusalFor, sanitizeOutput, redactSecrets, neutralizeMentions, wrapUrls, cap, ZWSP };
+/** Remove <think>…</think> blocks (also an unterminated one, and anything before a stray closing tag). */
+function stripThink(raw) {
+  let t = typeof raw === 'string' ? raw : '';
+  t = t.replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, '');
+  const stray = t.search(/<\/think(?:ing)?>/i);
+  if (stray !== -1) t = t.slice(t.search(/<\/think(?:ing)?>/i)).replace(/^<\/think(?:ing)?>/i, '');
+  t = t.replace(/<think(?:ing)?>[\s\S]*$/i, '');
+  return t.trim();
+}
+
+const GUARD_MODEL = /safety|guard|moderation|classif/i;
+const CLASSIFIER_LINE = /^\s*(?:User|Response)\s+Safety\s*:|^\s*Safety\s+Categories\s*:/im;
+// A bare verdict such as "safe", "unsafe\nS1,S5", "Safe." with no other prose.
+const BARE_VERDICT = /^\s*(?:safe|unsafe)\.?(?:\s*[\n,;]\s*(?:S\d{1,2}|[A-Za-z ]{1,30}:\s*\w+))*\s*$/i;
+// A JSON object that only carries safety labels.
+const LABEL_JSON = /^\s*\{\s*"(?:user[ _]?safety|response[ _]?safety|safety|safe|label|categories|category|violation|verdict)"[\s\S]*\}\s*$/i;
+
+/**
+ * Decide whether a model reply may be posted. Returns { usable: true, text } or
+ * { usable: false, reason: 'empty' | 'guard' | 'classifier' } (reason codes only, never content).
+ */
+function assessReply(raw, model) {
+  if (typeof model === 'string' && GUARD_MODEL.test(model)) return { usable: false, reason: 'guard' };
+  const text = stripThink(raw);
+  if (!text.replace(/[\s\u200b-\u200d\u2060\ufeff]/g, '')) return { usable: false, reason: 'empty' };
+  if (CLASSIFIER_LINE.test(text) || BARE_VERDICT.test(text) || LABEL_JSON.test(text)) return { usable: false, reason: 'classifier' };
+  return { usable: true, text };
+}
+
+module.exports = { stripThink, assessReply, checkInput, refusalFor, sanitizeOutput, redactSecrets, neutralizeMentions, wrapUrls, cap, ZWSP };

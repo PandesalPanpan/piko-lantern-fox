@@ -9,6 +9,9 @@ const TITLE = 'Piko \u2014 The Lantern Fox';
 const TITLE_ASCII = 'Piko - The Lantern Fox';
 
 const MAX_TOKENS = 180;
+// Documented OpenRouter `reasoning` option (openrouter.ai/docs/use-cases/reasoning-tokens): a low effort keeps
+// reasoning models from spending the whole token budget on hidden reasoning. Reasoning is never posted.
+const REASONING = Object.freeze({ effort: 'low' });
 const TEMPERATURE = 0.8;
 const REQUEST_TIMEOUT_MS = 20000;
 const RETRY_DELAY_MS = 800;
@@ -50,6 +53,7 @@ const MSG = Object.freeze({
   session: 'The lantern needs a moment to cool. Try again in a little while.',
   forget: 'Your previous trail has faded from my lantern. We can begin again.',
   privacy: "Please don't share passwords, keys or personal details with me.",
+  noWords: 'The free lantern-light flickered and gave no words. Try again in a moment.',
   emptyOutput: 'The words slipped out of my lantern before I could catch them. Ask me again?',
   ownerOnly: 'Only the lantern keeper can use that command.',
   emptyInput: 'The lantern is listening. Tell me something to chat about!',
@@ -65,7 +69,7 @@ const MSG = Object.freeze({
 });
 
 module.exports = {
-  MODEL, BASE_URL, ENDPOINT, REFERER, TITLE, TITLE_ASCII, MAX_TOKENS, TEMPERATURE,
+  MODEL, BASE_URL, ENDPOINT, REFERER, TITLE, TITLE_ASCII, MAX_TOKENS, REASONING, TEMPERATURE,
   REQUEST_TIMEOUT_MS, RETRY_DELAY_MS, LIMITS, PAGE_URL_DEFAULT, TIME_ZONE_LABEL, TZ_OFFSET_MS,
   SYSTEM_PROMPT, MSG,
 };

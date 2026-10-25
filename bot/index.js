@@ -45,6 +45,7 @@ const handlers = createHandlers({ pageUrl: cfg.pageUrl });
 const ai = createAiService({
   apiKey: cfg.openrouterKey,
   ownerId: cfg.ownerId,
+  chatChannelId: cfg.chatChannelId,
   discordToken: cfg.token,
   runDir: path.resolve(__dirname, '..', 'run'),
   log: (m) => log(m),

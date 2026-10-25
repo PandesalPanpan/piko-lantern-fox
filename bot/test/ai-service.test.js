@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const C = require('../ai-constants');
 const { createContextStore } = require('../context-store');
-const { makeEnv, ok, err, FAKE_KEY, FAKE_DISCORD_TOKEN, OWNER } = require('./_helpers');
+const { makeEnv, ok, okRaw, err, FAKE_KEY, FAKE_DISCORD_TOKEN, OWNER } = require('./_helpers');
 
 const DISABLED = 'My AI lantern is resting right now, but my slash commands still work.';
 const GREETING = 'Hello, traveler! Mention me with a question while my AI lantern is glowing.';
@@ -318,8 +318,9 @@ test('retry is skipped when it would exceed the per-user limit', async () => {
 test('a 200 response with an empty body falls back to a friendly line', async () => {
   const env = makeEnv();
   env.startDemo();
-  env.queue.push(ok('   '));
-  assert.equal((await env.say('u1', 'hello'))[0].content.split('\n')[0], C.MSG.emptyOutput);
+  env.queue.push(ok('   '), ok('   '));
+  assert.equal((await env.say('u1', 'hello'))[0].content, C.MSG.noWords);
+  assert.equal(env.calls.length, 2);
 });
 
 // ---------- duplicates / in-flight ----------
@@ -542,4 +543,160 @@ test('invalid fetch results never throw into the caller and show no internals', 
   const [r] = await env.say('u1', 'hello');
   assert.equal(r.content, FLICKER);
   assert.ok(!/stack|Unexpected|Error/.test(r.content));
+});
+
+// ---------- unusable replies: empty / reasoning-only / guard models / classifier output ----------
+const SECRET_THOUGHT = 'hidden chain of thought that must never be posted';
+const allContent = (replies) => replies.map((r) => r.content).join('\n');
+
+test('empty content with a reasoning field: not posted, one re-ask, then the friendly fallback', async () => {
+  const env = makeEnv();
+  env.startDemo();
+  env.queue.push(
+    okRaw({ content: '', reasoning: SECRET_THOUGHT, finish: 'length', model: 'nvidia/nemotron-3.5-lightning:free' }),
+    okRaw({ content: null, reasoning: SECRET_THOUGHT, finish: 'length', model: 'nvidia/nemotron-3.5-lightning:free' }),
+  );
+  const r = await env.say('u1', 'Give me a tiny creative project for tonight.');
+  assert.equal(r.length, 1);
+  assert.equal(r[0].content, C.MSG.noWords);
+  assert.equal(r[0].content, 'The free lantern-light flickered and gave no words. Try again in a moment.');
+  assert.equal(env.calls.length, 2);
+  assert.ok(!allContent(r).includes(SECRET_THOUGHT));
+  assert.ok(env.logs.some((l) => /unusable reason=empty/.test(l)));
+  assert.ok(!env.logs.join('\n').includes(SECRET_THOUGHT));
+});
+
+test('reasoning text is never used as the reply, and the re-ask can succeed', async () => {
+  const env = makeEnv();
+  env.startDemo();
+  env.queue.push(okRaw({ content: '', reasoning: SECRET_THOUGHT }), ok('Fold a paper lantern and write a wish inside.'));
+  const r = await env.say('u1', 'project?');
+  assert.equal(env.calls.length, 2);
+  assert.match(r[0].content, /paper lantern/);
+  assert.ok(!allContent(r).includes(SECRET_THOUGHT));
+});
+
+test('a guard/safety model id is never posted, even with harmless-looking text', async () => {
+  const env = makeEnv();
+  env.startDemo();
+  env.queue.push(ok('Here is a lovely idea!', 'nvidia/nemotron-3.5-content-safety:free'), ok('A real answer about lanterns.', 'vendor/chat-model:free'));
+  const r = await env.say('u1', 'hi there');
+  assert.equal(env.calls.length, 2);
+  assert.equal(r[0].content.split('\n')[0], 'A real answer about lanterns.');
+  assert.ok(env.logs.some((l) => /unusable reason=guard/.test(l)));
+});
+
+test('a guard model on both attempts ends in the friendly fallback', async () => {
+  const env = makeEnv();
+  env.startDemo();
+  env.queue.push(ok('x', 'meta/llama-guard-4:free'), ok('y', 'vendor/moderation-thing:free'));
+  const r = await env.say('u1', 'hi there');
+  assert.equal(r[0].content, C.MSG.noWords);
+  assert.equal(env.calls.length, 2);
+});
+
+test('classifier-shaped text is not posted', async () => {
+  for (const text of ['User Safety: safe\nResponse Safety: safe', 'safe', 'Unsafe\nS1, S5', '{"User Safety": "safe", "Response Safety": "safe"}']) {
+    const env = makeEnv();
+    env.startDemo();
+    env.queue.push(ok(text), ok(text));
+    const r = await env.say('u1', 'hi there');
+    assert.equal(r[0].content, C.MSG.noWords, text);
+    assert.equal(env.calls.length, 2);
+    assert.ok(env.logs.some((l) => /unusable reason=classifier/.test(l)));
+  }
+});
+
+test('normal answers that merely mention safety are still posted', async () => {
+  for (const text of ['Safe travels! Try folding a paper boat tonight.', 'Safety first: keep candles away from curtains, then draw by lantern light.']) {
+    const env = makeEnv();
+    env.startDemo();
+    env.queue.push(ok(text));
+    const r = await env.say('u1', 'hi there');
+    assert.equal(env.calls.length, 1);
+    assert.ok(r[0].content.startsWith(text.slice(0, 20)));
+  }
+});
+
+test('a zero-width-only reply counts as empty', async () => {
+  const env = makeEnv();
+  env.startDemo();
+  env.queue.push(ok('\u200b \u200b'), ok('\ufeff'));
+  const r = await env.say('u1', 'hello there');
+  assert.equal(r[0].content, C.MSG.noWords);
+});
+
+test('think tags are stripped; a think-only reply counts as empty', async () => {
+  const env = makeEnv();
+  env.startDemo();
+  env.queue.push(ok('<think>' + SECRET_THOUGHT + '</think>\nSketch a tiny map of your room.'));
+  const r = await env.say('u1', 'project?');
+  assert.equal(env.calls.length, 1);
+  assert.match(r[0].content, /Sketch a tiny map/);
+  assert.ok(!allContent(r).includes(SECRET_THOUGHT));
+
+  const env2 = makeEnv();
+  env2.startDemo();
+  env2.queue.push(ok('<think>' + SECRET_THOUGHT + ' and then it ran out of tokens'), ok('<think>again'));
+  const r2 = await env2.say('u1', 'project?');
+  assert.equal(r2[0].content, C.MSG.noWords);
+  assert.ok(!allContent(r2).includes(SECRET_THOUGHT));
+});
+
+test('the re-ask counts toward daily and session counters', async () => {
+  const env = makeEnv();
+  env.startDemo();
+  env.queue.push(ok(''), ok('A tiny reply.'));
+  await env.say('u1', 'hello there');
+  assert.equal(env.calls.length, 2);
+  assert.equal(env.ai.status().todayCount, 2);
+});
+
+test('the re-ask is skipped when it would exceed the per-user per-minute cap', async () => {
+  const env = makeEnv();
+  env.startDemo();
+  await env.say('u1', 'first'); env.advance(5000);
+  env.queue.push(ok(''), ok('should not be requested'));
+  const r = await env.say('u1', 'second');
+  assert.equal(env.calls.length, 2);
+  assert.equal(r[0].content, C.MSG.noWords);
+  assert.equal(env.ai.status().todayCount, 2);
+});
+
+test('an unusable reply is not remembered as context', async () => {
+  const env = makeEnv();
+  env.startDemo();
+  env.queue.push(ok('User Safety: safe\nResponse Safety: safe'), ok('User Safety: safe'));
+  await env.say('u1', 'hello there');
+  env.advance(61000);
+  await env.say('u1', 'second');
+  const roles = env.calls[2].body.messages.map((m) => m.role + ':' + m.content);
+  assert.ok(!roles.some((m) => /Safety/.test(m)));
+});
+
+test('a 400 from the parameter change is not retried and shows the unavailable line', async () => {
+  const env = makeEnv();
+  env.startDemo();
+  env.queue.push(err(400), ok('should not be requested'));
+  const r = await env.say('u1', 'hello there');
+  assert.equal(env.calls.length, 1);
+  assert.equal(r[0].content, C.MSG.unavailable);
+});
+
+test('a transient 5xx still gets exactly one retry (and a retry that is unusable gets no second re-ask)', async () => {
+  const env = makeEnv();
+  env.startDemo();
+  env.queue.push(err(503), ok(''), ok('never'));
+  const r = await env.say('u1', 'hello there');
+  assert.equal(env.calls.length, 2);
+  assert.equal(r[0].content, C.MSG.noWords);
+});
+
+test('/demo-start announcement names the dedicated channel (and keeps the old text without one)', () => {
+  const withCh = makeEnv({ chatChannelId: '4000000000000000004' });
+  const p = withCh.startDemo();
+  assert.match(p.content, /Chat with me in <#4000000000000000004> without a mention, or mention me in any other channel/);
+  assert.deepEqual(p.allowedMentions, { parse: [] });
+  const without = makeEnv();
+  assert.match(without.startDemo().content, /Mention me in a server message with your question until/);
 });

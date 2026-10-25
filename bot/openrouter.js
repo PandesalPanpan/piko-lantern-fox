@@ -32,6 +32,7 @@ function buildBody(messages) {
     messages,
     max_tokens: C.MAX_TOKENS,
     temperature: C.TEMPERATURE,
+    reasoning: { ...C.REASONING },
     stream: false,
   };
 }
@@ -77,14 +78,33 @@ async function requestCompletion({ fetchImpl = globalThis.fetch, apiKey, message
     }
     let data;
     try { data = await res.json(); } catch (_) {
+      // An abort while the body was still arriving is a timeout (transient), not a malformed response.
+      if (timedOut) return { ok: false, category: 'timeout', transient: true, status: 0, latencyMs: lat() };
       return { ok: false, category: 'bad-response', transient: false, status, latencyMs: lat() };
     }
     const choice = data && Array.isArray(data.choices) ? data.choices[0] : null;
-    const text = choice && choice.message && typeof choice.message.content === 'string' ? choice.message.content : '';
+    const msg = choice && choice.message ? choice.message : null;
+    // ONLY `content` is ever used as reply text. `reasoning` / `reasoning_content` / `reasoning_details` are
+    // never read into the text (their presence is reported as a boolean for diagnostics).
+    let text = '';
+    if (msg && typeof msg.content === 'string') text = msg.content;
+    else if (msg && Array.isArray(msg.content)) text = msg.content.filter((p) => p && p.type === 'text' && typeof p.text === 'string').map((p) => p.text).join('');
     if (data && data.error && !text) {
       return { ok: false, category: 'other', transient: false, status, latencyMs: lat() };
     }
-    return { ok: true, text, model: safeModelId(data && data.model), status, latencyMs: lat() };
+    const u = data && data.usage && typeof data.usage === 'object' ? data.usage : {};
+    const num = (v) => (Number.isFinite(v) ? v : null);
+    const details = u.completion_tokens_details && typeof u.completion_tokens_details === 'object' ? u.completion_tokens_details : {};
+    return {
+      ok: true,
+      text,
+      model: safeModelId(data && data.model),
+      status,
+      latencyMs: lat(),
+      finishReason: choice && typeof choice.finish_reason === 'string' && /^[a-z_]{1,30}$/.test(choice.finish_reason) ? choice.finish_reason : null,
+      hasReasoning: !!(msg && (msg.reasoning || msg.reasoning_content || (Array.isArray(msg.reasoning_details) && msg.reasoning_details.length))),
+      usage: { prompt: num(u.prompt_tokens), completion: num(u.completion_tokens), total: num(u.total_tokens), reasoning: num(details.reasoning_tokens) },
+    };
   } catch (err) {
     if (err && err.code === 'BAD_HEADERS') {
       return { ok: false, category: 'bad-headers', transient: false, status: 0, latencyMs: lat(), notSent: true };

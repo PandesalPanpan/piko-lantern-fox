@@ -20,12 +20,14 @@ test('request body: one fixed model, no fallback list, no tools, no streaming', 
   const { body, url, init } = env.calls[0];
   assert.equal(url, C.ENDPOINT);
   assert.equal(init.method, 'POST');
-  assert.deepEqual(Object.keys(body).sort(), ['max_tokens', 'messages', 'model', 'stream', 'temperature']);
+  assert.deepEqual(Object.keys(body).sort(), ['max_tokens', 'messages', 'model', 'reasoning', 'stream', 'temperature']);
   assert.equal(body.model, 'openrouter/free');
   assert.equal('models' in body, false);
   assert.equal('tools' in body, false);
   assert.equal(body.stream, false);
   assert.equal(body.max_tokens, 180);
+  assert.deepEqual(body.reasoning, { effort: 'low' });
+  assert.equal('provider' in body, false);
   assert.ok(Math.abs(body.temperature - 0.8) < 0.2);
   assert.equal(JSON.stringify(body).match(/"model"/g).length, 1);
   assert.equal(body.messages[0].role, 'system');
@@ -100,4 +102,35 @@ test('buildBody never includes extra model fields', () => {
   const b = buildBody([{ role: 'user', content: 'x' }]);
   assert.equal(b.model, 'openrouter/free');
   assert.equal(b.models, undefined);
+});
+
+test('requestCompletion reports reasoning only as a boolean and never uses it as text', async () => {
+  const fetchImpl = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      model: 'vendor/reasoner:free',
+      choices: [{ finish_reason: 'length', message: { content: null, reasoning: 'secret thoughts' } }],
+      usage: { prompt_tokens: 50, completion_tokens: 180, total_tokens: 230, completion_tokens_details: { reasoning_tokens: 180 } },
+    }),
+  });
+  const r = await requestCompletion({ fetchImpl, apiKey: FAKE_KEY, messages: [{ role: 'user', content: 'hi' }], timeoutMs: 1000, now: Date.now });
+  assert.equal(r.ok, true);
+  assert.equal(r.text, '');
+  assert.equal(r.hasReasoning, true);
+  assert.equal(r.finishReason, 'length');
+  assert.deepEqual(r.usage, { prompt: 50, completion: 180, total: 230, reasoning: 180 });
+  assert.ok(!JSON.stringify(r).includes('secret thoughts'));
+});
+
+test('an abort while the response body is still arriving is reported as a transient timeout', async () => {
+  const fetchImpl = async (url, init) => ({
+    ok: true,
+    status: 200,
+    json: () => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(new Error('aborted')))),
+  });
+  const r = await requestCompletion({ fetchImpl, apiKey: FAKE_KEY, messages: [{ role: 'user', content: 'hi' }], timeoutMs: 20, now: Date.now });
+  assert.equal(r.ok, false);
+  assert.equal(r.category, 'timeout');
+  assert.equal(r.transient, true);
 });

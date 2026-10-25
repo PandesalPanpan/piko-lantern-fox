@@ -17,6 +17,16 @@ const ok = (text, model = 'vendor/some-model:free') => ({
   status: 200,
   json: async () => ({ model, choices: [{ message: { content: text } }] }),
 });
+/** Full-control 200 response: content/reasoning/finish_reason/usage variants. */
+const okRaw = ({ content = null, reasoning, model = 'vendor/some-model:free', finish = 'stop', usage } = {}) => ({
+  ok: true,
+  status: 200,
+  json: async () => ({
+    model,
+    choices: [{ finish_reason: finish, message: { role: 'assistant', content, ...(reasoning !== undefined ? { reasoning } : {}) } }],
+    ...(usage ? { usage } : {}),
+  }),
+});
 const err = (status) => ({ ok: false, status, body: null, json: async () => ({ error: { message: 'hidden detail' } }) });
 
 function makeEnv(overrides = {}) {
@@ -68,4 +78,4 @@ function makeEnv(overrides = {}) {
   return env;
 }
 
-module.exports = { makeEnv, ok, err, FAKE_KEY, FAKE_DISCORD_TOKEN, OWNER, BOT_ID, GUILD };
+module.exports = { makeEnv, ok, okRaw, err, FAKE_KEY, FAKE_DISCORD_TOKEN, OWNER, BOT_ID, GUILD };
