@@ -1,0 +1,17 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# dependencies, runtime, logs
+node_modules/
+run/
+logs/
+*.log
+npm-debug.log*
+
+# misc
+.DS_Store
+.venv*/
