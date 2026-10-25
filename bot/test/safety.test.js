@@ -63,14 +63,32 @@ test('output: code fences are removed (plain text only)', () => {
   assert.ok(out.includes('rm -rf /'));
 });
 
-test('output: capped strictly under 700 characters with an ellipsis', () => {
+test('output: hard-capped at 600 characters with an ellipsis when there is no sentence boundary', () => {
   const long = Array.from({ length: 400 }, (_, i) => `word${i}`).join(' ');
   const out = sanitizeOutput(long);
-  assert.ok(out.length < 700, String(out.length));
+  assert.ok(out.length <= 600, String(out.length));
   assert.ok(out.endsWith('\u2026'));
   const urls = sanitizeOutput(Array.from({ length: 60 }, (_, i) => `https://example.com/page${i}`).join(' '));
-  assert.ok(urls.length < 700);
+  assert.ok(urls.length <= 600);
   assert.ok(!/<https?:[^>]*$/.test(urls), 'no half-wrapped link at the cut');
+});
+
+test('output: long replies are trimmed at a sentence boundary and stay short', () => {
+  const long = Array.from({ length: 80 }, (_, i) => `Sentence number ${i} is here.`).join(' ');
+  const out = sanitizeOutput(long);
+  assert.ok(out.length <= 600 && out.length > 400, String(out.length));
+  assert.match(out, /\.$/);
+  assert.ok(!out.endsWith('\u2026'));
+  assert.ok(/Sentence number \d+ is here\.$/.test(out), 'ends on a whole sentence');
+});
+
+test('output: never exceeds 2000 characters even for huge replies', () => {
+  assert.ok(sanitizeOutput('a'.repeat(20000)).length <= 600);
+  assert.ok(sanitizeOutput('Hi. '.repeat(5000)).length <= 600);
+});
+
+test('output: short replies are untouched', () => {
+  assert.equal(sanitizeOutput('A tiny reply. Two sentences.'), 'A tiny reply. Two sentences.');
 });
 
 test('output: secrets are redacted (exact values and shapes)', () => {

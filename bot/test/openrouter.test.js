@@ -9,7 +9,10 @@ test('model is exactly the openrouter/free constant', () => {
   assert.equal(C.MODEL, 'openrouter/free');
   assert.equal(C.BASE_URL, 'https://openrouter.ai/api/v1');
   assert.equal(C.ENDPOINT, 'https://openrouter.ai/api/v1/chat/completions');
-  assert.equal(C.MAX_TOKENS, 180);
+  assert.equal(C.MAX_TOKENS, 400);
+  assert.equal(C.REQUEST_TIMEOUT_MS, 30000);
+  assert.equal(C.LIMITS.maxOutputChars, 600);
+  assert.match(C.SYSTEM_PROMPT, /2-4 sentences/);
 });
 
 test('request body: one fixed model, no fallback list, no tools, no streaming', async () => {
@@ -25,7 +28,7 @@ test('request body: one fixed model, no fallback list, no tools, no streaming', 
   assert.equal('models' in body, false);
   assert.equal('tools' in body, false);
   assert.equal(body.stream, false);
-  assert.equal(body.max_tokens, 180);
+  assert.equal(body.max_tokens, 400);
   assert.deepEqual(body.reasoning, { effort: 'low' });
   assert.equal('provider' in body, false);
   assert.ok(Math.abs(body.temperature - 0.8) < 0.2);

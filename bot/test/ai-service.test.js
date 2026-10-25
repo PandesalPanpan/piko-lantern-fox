@@ -492,7 +492,7 @@ test('model output is sanitized: mentions, URLs, secrets, length, allowedMention
   assert.ok(!/@everyone|@here|<@|<#/.test(r.content));
   assert.ok(r.content.includes('<https://example.com/x>'));
   assert.ok(!r.content.includes(FAKE_KEY) && !r.content.includes(FAKE_DISCORD_TOKEN));
-  assert.ok(r.content.split('\n-#')[0].length < 700);
+  assert.ok(r.content.split('\n-#')[0].length <= 600);
 });
 
 test('privacy reminder is appended to the first reply per member per session', async () => {

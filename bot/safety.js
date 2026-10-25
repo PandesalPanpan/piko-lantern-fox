@@ -80,6 +80,23 @@ function cap(text, max) {
   return out + '\u2026';
 }
 
+/** Hard-limit to `max` characters, preferring to end on a sentence boundary (never beyond Discord's limit). */
+function capReply(text, max) {
+  const limit = Math.min(max, C.LIMITS.discordMaxChars - 200);
+  const chars = Array.from(text);
+  if (chars.length <= limit) return text;
+  const head = chars.slice(0, limit).join('');
+  let best = -1;
+  const re = /[.!?\u2026](?=\s|$)/g;
+  let m;
+  while ((m = re.exec(head))) best = m.index + 1;
+  if (best >= Math.floor(limit * 0.4)) {
+    const cut = head.slice(0, best).trimEnd();
+    if (!/<(?:https?:\/\/|www\.)[^>\s]*$/i.test(cut)) return cut;
+  }
+  return cap(text, limit);
+}
+
 /** Treat model output as untrusted text; returns a string that is safe to post. */
 function sanitizeOutput(raw, secrets = []) {
   let t = typeof raw === 'string' ? raw : '';
@@ -93,7 +110,7 @@ function sanitizeOutput(raw, secrets = []) {
     .trim();
   t = neutralizeMentions(t);
   t = wrapUrls(t);
-  t = cap(t, C.LIMITS.maxOutputChars);
+  t = capReply(t, C.LIMITS.maxOutputChars);
   t = redactSecrets(t, secrets);
   return t.trim() ? t : C.MSG.emptyOutput;
 }
