@@ -66,7 +66,7 @@ test('handlers never allow mentions and /about includes required info', () => {
   assert.ok(about.includes('Optional AI replies are routed through OpenRouter during controlled demo sessions.'));
   assert.ok(about.includes('To talk with Piko during an active demo, mention Piko in a server message and include your question.'));
   assert.ok(about.includes('@Piko Give me a tiny creative project for tonight.'));
-  assert.match(about, /sensitive information/);
+  assert.doesNotMatch(about, /sensitive information|passwords/);
   assert.match(about, /inactive or free capacity is exhausted/);
 });
 

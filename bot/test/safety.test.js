@@ -72,7 +72,7 @@ test('output: URLs and invite links are removed entirely, with tidy leftovers', 
   assert.equal(sanitizeOutput('No links here, just words.'), 'No links here, just words.');
 });
 
-test('output: the max length parameter is honoured (room for the privacy note)', () => {
+test('output: the max length parameter is honoured ', () => {
   const long = Array.from({ length: 80 }, (_, i) => `Sentence number ${i} is here.`).join(' ');
   assert.ok(sanitizeOutput(long, [], 540).length <= 540);
 });

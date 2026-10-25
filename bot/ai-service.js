@@ -66,7 +66,6 @@ function createAiService(opts = {}) {
   const windows = new Map(); // userId -> [timestamps] (sliding 60 s window)
   const inflight = new Set(); // userIds with a request in progress
   const seen = new Map(); // message id -> ms (dedupe)
-  const introduced = new Set(); // members who already saw the privacy reminder this session
 
   const hasKey = () => typeof apiKey === 'string' && apiKey.trim().length > 0;
   const killSwitchOn = () => { try { return fs.existsSync(killFile); } catch (_) { return true; } };
@@ -90,7 +89,6 @@ function createAiService(opts = {}) {
     if (expiryTimer) { timers.clearTimeout(expiryTimer); expiryTimer = null; }
     sessionCounts.clear();
     windows.clear();
-    introduced.clear();
     store.clearAll();
     clearDemoFile();
     if (was) log(`ai demo ended reason=${reason} ended_at=${new Date(now()).toISOString()}`);
@@ -107,7 +105,6 @@ function createAiService(opts = {}) {
     demo = { start: startMs, end: endMs, id: ++demoSeq };
     sessionCounts.clear();
     windows.clear();
-    introduced.clear();
     store.clearAll();
     try {
       fs.mkdirSync(runDir, { recursive: true, mode: 0o700 });
@@ -187,8 +184,7 @@ function createAiService(opts = {}) {
     return payload(
       `My AI lantern is lit! ${how} until ${formatManila(endMs)} (<t:${epoch}:t>, <t:${epoch}:R>).\n\n` +
         `Limits: ${LIMITS.perUserPerMinute} chats per person per minute, ${LIMITS.perUserPerSession} per person this session, ${LIMITS.globalPerDay} per day for everyone. ` +
-        `I only remember your last ${LIMITS.contextMessages} messages, in memory, and **/forget** wipes them.\n` +
-        MSG.privacy,
+        `I only remember your last ${LIMITS.contextMessages} messages, in memory, and **/forget** wipes them.`,
       false
     );
   }
@@ -385,13 +381,10 @@ function createAiService(opts = {}) {
       // The session may have ended (or the member may have run /forget) while we waited.
       if (!demo || demo.id !== sessionId) return await reply(payload(MSG.disabled));
 
-      // The one-time privacy note counts toward the cap: reply text + note <= LIMITS.maxOutputChars.
-      const needsNote = !introduced.has(userId);
-      const suffix = needsNote ? `\n-# ${MSG.privacy}` : '';
-      const clean = sanitizeOutput(verdict.text, secrets, LIMITS.maxOutputChars - Array.from(suffix).length);
+      // The whole reply may use the full LIMITS.maxOutputChars (nothing is appended).
+      const clean = sanitizeOutput(verdict.text, secrets, LIMITS.maxOutputChars);
       if (store.version() === versionAtStart) store.appendTurn(userId, text, clean);
-      if (needsNote) introduced.add(userId);
-      return await reply(payload(clean + suffix));
+      return await reply(payload(clean));
     } catch (_) {
       log('ai conversation handler error (details withheld)');
       try { await reply(payload(MSG.unavailable)); } catch (_2) { /* nothing more to do */ }

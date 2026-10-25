@@ -59,7 +59,7 @@ function createHandlers({ pageUrl = '', rng = Math.random } = {}) {
               `**Character page:** ${page}\n` +
               `**Server invite:** ${content.ABOUT.invite}\n\n` +
               `${content.ABOUT.credit}\n\n` +
-              `${content.ABOUT.ai}\n${content.ABOUT.privacy}\n${content.ABOUT.availability}`
+              `${content.ABOUT.ai}\n${content.ABOUT.availability}`
           ),
         ],
         allowedMentions: NO_MENTIONS,

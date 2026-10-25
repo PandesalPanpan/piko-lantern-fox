@@ -7,6 +7,8 @@ const { INTENTS } = require('./intents');
 const { createAiService } = require('./ai-service');
 const { handleAiCommand } = require('./ai-discord');
 const { createMessageHandler } = require('./message-handler');
+const { Status } = require('discord.js');
+const { attachGatewayLogging, installProcessHandlers, createWatchdog } = require('./gateway-health');
 
 let cfg;
 try {
@@ -19,11 +21,7 @@ try {
 const log = (msg) => console.log(`[${new Date().toISOString()}] ${msg}`);
 const warn = (msg) => console.error(`[${new Date().toISOString()}] ${msg}`);
 
-process.on('unhandledRejection', (reason) => warn('Unhandled rejection: ' + shortError(reason, cfg.secrets)));
-process.on('uncaughtException', (err) => {
-  warn('Uncaught exception: ' + shortError(err, cfg.secrets));
-  process.exit(1);
-});
+installProcessHandlers(process, { warn, shortError, secrets: cfg.secrets, exit: (code) => process.exit(code) });
 
 // Guilds + GuildMessages + MessageContent (privileged, approved): MessageContent is needed only to read
 // unmentioned messages in the dedicated chat channel(s); elsewhere a direct mention is required.
@@ -107,9 +105,19 @@ client.on(Events.MessageCreate, (message) => {
   onMessage(message).catch((err) => warn('Message handler failed: ' + shortError(err, cfg.secrets)));
 });
 
-client.on(Events.Error, (err) => warn('Client error: ' + shortError(err, cfg.secrets)));
-client.on(Events.ShardDisconnect, (ev, id) => warn(`Shard ${id} disconnected (code ${ev && ev.code}).`));
-client.on(Events.ShardReconnecting, (id) => log(`Shard ${id} reconnecting.`));
+attachGatewayLogging(client, { Events, log, warn, shortError, secrets: cfg.secrets });
+
+// Watchdog: if the gateway is not READY for more than 3 consecutive minutes, exit non-zero so supervisor.sh
+// restarts the process (with its backoff). The AI demo session is restored from run/demo.json on restart.
+const watchdog = createWatchdog({
+  isReady: () => client.ws && client.ws.status === Status.Ready,
+  log,
+  onStuck: () => {
+    try { ai.shutdown(); } catch (_) { /* ignore */ }
+    process.exit(1);
+  },
+});
+watchdog.start();
 
 function shutdown(signal) {
   ai.shutdown();

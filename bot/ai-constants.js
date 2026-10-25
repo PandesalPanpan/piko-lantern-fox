@@ -75,7 +75,6 @@ const MSG = Object.freeze({
   minute: 'The lantern needs a moment to cool. Try again in a little while.',
   session: 'The lantern needs a moment to cool. Try again in a little while.',
   forget: 'Your previous trail has faded from my lantern. We can begin again.',
-  privacy: "Please don't share passwords, keys or personal details with me.",
   noWords: 'The free lantern-light flickered and gave no words. Try again in a moment.',
   emptyOutput: 'The words slipped out of my lantern before I could catch them. Ask me again?',
   ownerOnly: 'Only the lantern keeper can use that command.',

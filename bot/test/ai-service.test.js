@@ -499,15 +499,17 @@ test('model output is sanitized: mentions, URLs, secrets, length, allowedMention
   assert.ok(r.content.length <= 900);
 });
 
-test('privacy reminder is appended to the first reply per member per session', async () => {
+test('no privacy note is appended to any AI reply', async () => {
   const env = makeEnv();
   env.startDemo();
   const a = await env.say('u1', 'hello'); env.advance(31 * 1000);
   const b = await env.say('u1', 'again');
   const c = await env.say('u2', 'hello from two');
-  assert.match(a[0].content, /Please don't share passwords, keys or personal details with me\./);
-  assert.doesNotMatch(b[0].content, /Please don't share/);
-  assert.match(c[0].content, /Please don't share/);
+  for (const r of [a, b, c]) {
+    assert.doesNotMatch(r[0].content, /Please don't share|passwords, keys|personal details/);
+    assert.ok(!r[0].content.includes('-#'));
+  }
+  assert.equal(C.MSG.privacy, undefined);
 });
 
 test('over-long input is rejected locally', async () => {
@@ -706,18 +708,16 @@ test('/demo-start announcement names the dedicated channel (and keeps the old te
 });
 
 // ---------- Sentinel review fixes ----------
-test('privacy note counts toward the 900-character cap (reply + suffix <= 900)', async () => {
+test('replies may use the full 900 characters (no room reserved for a note)', async () => {
   const env = makeEnv();
   env.startDemo();
   const long = Array.from({ length: 80 }, (_, i) => `Sentence number ${i} is here.`).join(' ');
   env.queue.push(ok(long), ok(long));
   const [first] = await env.say('u1', 'tell me a lot');
-  assert.ok(first.content.includes(C.MSG.privacy));
-  assert.ok(first.content.length <= 900, String(first.content.length));
+  assert.ok(first.content.length <= 900 && first.content.length > 840, String(first.content.length));
   env.advance(61000);
   const [second] = await env.say('u1', 'again');
-  assert.ok(!second.content.includes(C.MSG.privacy));
-  assert.ok(second.content.length <= 900 && second.content.length > 800);
+  assert.ok(second.content.length <= 900 && second.content.length > 840);
 });
 
 test('static replies: at most one per member per 20 seconds, extras are silent', async () => {
@@ -882,8 +882,7 @@ test('replies can be up to 900 characters, trimmed at a sentence boundary', asyn
   const [r] = await env.say('u1', 'ramble at me');
   assert.ok(r.content.length <= 900);
   assert.ok(r.content.length > 700);
-  assert.ok(r.content.includes(C.MSG.privacy));
-  assert.match(r.content.replace(C.MSG.privacy, '').trim().replace(/\n-#\s*$/, ''), /is here\.$/);
+  assert.match(r.content, /is here\.$/);
 });
 
 test('announcement shows the new limits and memory size', () => {
@@ -891,6 +890,7 @@ test('announcement shows the new limits and memory size', () => {
   const t = env.startDemo().content;
   assert.match(t, /6 chats per person per minute, 40 per person this session, 45 per day for everyone/);
   assert.match(t, /last 12 messages/);
+  assert.doesNotMatch(t, /Please don't share|passwords|personal details/);
 });
 
 test('retry rules unchanged: never retry 400/401/402/403/429; one retry for 5xx', async () => {

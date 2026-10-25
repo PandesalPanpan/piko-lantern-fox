@@ -67,7 +67,6 @@ const ABOUT = {
   credit: 'Created with Grok Bot.',
   ai:
     'Optional AI replies are routed through OpenRouter during controlled demo sessions.',
-  privacy: 'Please do not send sensitive information (passwords, keys, or personal details) to Piko.',
   availability:
     'To talk with Piko during an active demo, mention Piko in a server message and include your question. ' +
     'Example: @Piko Give me a tiny creative project for tonight. ' +
