@@ -12,7 +12,13 @@ const definitions = [
   new SlashCommandBuilder().setName('quest').setDescription('Get one small creative quest (10-30 minutes).'),
   new SlashCommandBuilder().setName('spark').setDescription('Get a creative prompt or project idea.'),
   new SlashCommandBuilder().setName('about').setDescription('About Piko, the character page, and the server.'),
+  new SlashCommandBuilder().setName('forget').setDescription("Erase Piko's short memory of your chat."),
+  new SlashCommandBuilder().setName('demo-start').setDescription('Owner only: turn on AI chat for one hour.'),
+  new SlashCommandBuilder().setName('demo-stop').setDescription('Owner only: turn off AI chat now and clear all chat memory.'),
 ];
+
+/** Commands handled by the AI service (everything else is scripted and offline). */
+const AI_COMMAND_NAMES = ['forget', 'demo-start', 'demo-stop'];
 
 function embed(title, description, footer) {
   const e = new EmbedBuilder().setColor(LANTERN_CYAN).setTitle(title).setDescription(description);
@@ -44,7 +50,7 @@ function createHandlers({ pageUrl = '', rng = Math.random } = {}) {
       allowedMentions: NO_MENTIONS,
     }),
     about: () => {
-      const page = pageUrl || '(character page link coming soon)';
+      const page = pageUrl || content.PAGE_URL_DEFAULT;
       return {
         embeds: [
           embed(
@@ -52,7 +58,8 @@ function createHandlers({ pageUrl = '', rng = Math.random } = {}) {
             `${content.ABOUT.description}\n\n` +
               `**Character page:** ${page}\n` +
               `**Server invite:** ${content.ABOUT.invite}\n\n` +
-              content.ABOUT.credit
+              `${content.ABOUT.credit}\n\n` +
+              `${content.ABOUT.ai}\n${content.ABOUT.privacy}\n${content.ABOUT.availability}`
           ),
         ],
         allowedMentions: NO_MENTIONS,
@@ -61,4 +68,4 @@ function createHandlers({ pageUrl = '', rng = Math.random } = {}) {
   };
 }
 
-module.exports = { definitions, createHandlers, NO_MENTIONS };
+module.exports = { definitions, createHandlers, NO_MENTIONS, AI_COMMAND_NAMES };

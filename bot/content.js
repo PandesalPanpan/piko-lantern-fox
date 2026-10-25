@@ -57,12 +57,21 @@ const SPARKS = [
   'Imagine a market where people trade unfinished ideas. What is the strangest item for sale?',
 ];
 
+const PAGE_URL_DEFAULT = 'https://pandesalpanpan.github.io/piko-lantern-fox/';
+
 const ABOUT = {
   description:
     'Piko is a small digital fox born inside the final glowing pixel of a forgotten website. ' +
     'Piko carries a lantern of lost ideas and hands out creative sparks and small, achievable quests.',
   invite: INVITE_URL,
-  credit: 'Piko was created with Grok Bot.',
+  credit: 'Created with Grok Bot.',
+  ai:
+    'Optional AI replies are routed through OpenRouter during controlled demo sessions.',
+  privacy: 'Please do not send sensitive information (passwords, keys, or personal details) to Piko.',
+  availability:
+    'To talk with Piko during an active demo, mention Piko in a server message and include your question. ' +
+    'Example: @Piko Give me a tiny creative project for tonight. ' +
+    'AI replies may be unavailable when demo mode is inactive or free capacity is exhausted; the slash commands always work.',
 };
 
-module.exports = { INVITE_URL, HELLO, LORE, QUESTS, SPARKS, ABOUT };
+module.exports = { INVITE_URL, PAGE_URL_DEFAULT, HELLO, LORE, QUESTS, SPARKS, ABOUT };

@@ -38,13 +38,23 @@ function loadConfig({ requireToken = true, requireGuild = true } = {}) {
   let pageUrl = (env.PAGE_URL || '').trim();
   if (pageUrl && !/^https?:\/\/[^\s]+$/i.test(pageUrl)) pageUrl = '';
 
-  return { token, clientId, guildId, pageUrl };
+  if (!pageUrl) pageUrl = 'https://pandesalpanpan.github.io/piko-lantern-fox/';
+
+  // Optional AI settings. Missing values simply keep AI chat disabled; values are never printed.
+  let ownerId = (env.OWNER_DISCORD_USER_ID || '').trim();
+  if (!SNOWFLAKE.test(ownerId)) ownerId = '';
+  const openrouterKey = (env.OPENROUTER_API_KEY || '').trim();
+
+  return { token, clientId, guildId, pageUrl, ownerId, openrouterKey, secrets: [token, openrouterKey].filter(Boolean) };
 }
 
 /** Remove the token from any text before it is logged. */
 function redact(text, token) {
   let out = String(text);
-  if (token) out = out.split(token).join('[redacted]');
+  for (const t of Array.isArray(token) ? token : [token]) {
+    if (t && String(t).length >= 8) out = out.split(String(t)).join('[redacted]');
+  }
+  out = out.replace(/\bsk-or-[A-Za-z0-9_-]*/gi, '[redacted]');
   // Also mask anything shaped like a Discord bot token.
   return out.replace(/[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{20,}/g, '[redacted]');
 }

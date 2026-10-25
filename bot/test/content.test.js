@@ -17,11 +17,11 @@ test('content has the required number of entries', () => {
 
 test('about content has invite and Grok Bot credit', () => {
   assert.equal(content.ABOUT.invite, 'https://discord.gg/zxkSerrxWd');
-  assert.match(content.ABOUT.credit, /created with Grok Bot/);
+  assert.match(content.ABOUT.credit, /Created with Grok Bot/);
 });
 
-test('five commands are defined', () => {
-  assert.deepEqual(definitions.map((d) => d.name).sort(), ['about', 'hello', 'lore', 'quest', 'spark']);
+test('eight commands are defined (no /chat)', () => {
+  assert.deepEqual(definitions.map((d) => d.name).sort(), ['about', 'demo-start', 'demo-stop', 'forget', 'hello', 'lore', 'quest', 'spark']);
 });
 
 test('shuffle bag never repeats consecutively and covers all entries each round', () => {
@@ -62,7 +62,12 @@ test('handlers never allow mentions and /about includes required info', () => {
   const about = JSON.stringify(h.about().embeds[0].toJSON());
   assert.ok(about.includes('https://discord.gg/zxkSerrxWd'));
   assert.ok(about.includes('https://example.invalid/piko/'));
-  assert.ok(about.includes('created with Grok Bot'));
+  assert.ok(about.includes('Created with Grok Bot.'));
+  assert.ok(about.includes('Optional AI replies are routed through OpenRouter during controlled demo sessions.'));
+  assert.ok(about.includes('To talk with Piko during an active demo, mention Piko in a server message and include your question.'));
+  assert.ok(about.includes('@Piko Give me a tiny creative project for tonight.'));
+  assert.match(about, /sensitive information/);
+  assert.match(about, /inactive or free capacity is exhausted/);
 });
 
 test('repeated /lore, /quest, /spark calls do not repeat back-to-back', () => {

@@ -32,6 +32,7 @@
           <li><a href="#personality">Personality</a></li>
           <li><a href="#abilities">What Piko can do</a></li>
           <li><a href="#commands">Commands</a></li>
+          <li><a href="#ai-chat">AI chat</a></li>
           <li><a href="#join">Join</a></li>
         </ul>
       </nav>
@@ -91,13 +92,13 @@
       <div class="wrap">
         <div class="section-head">
           <h2 id="abilities-title">What Piko can do</h2>
-          <p class="section-intro">Piko only answers when you call. It never messages you first and never collects anything about you.</p>
+          <p class="section-intro">Piko only answers when you call, by slash command or, during an AI demo, by a direct mention. It never messages you first and never collects anything about you.</p>
         </div>
         <ul class="card-grid">
           <li class="card"><span class="icon" aria-hidden="true">&#10022;</span><h3>Hand out sparks</h3><p>Short creative prompts and project ideas for writing, art, code, and more.</p></li>
           <li class="card"><span class="icon" aria-hidden="true">&#9873;</span><h3>Offer tiny quests</h3><p>Safe, small challenges that take about 10 to 30 minutes to finish.</p></li>
           <li class="card"><span class="icon" aria-hidden="true">&#9998;</span><h3>Share lantern lore</h3><p>Pieces of Piko&rsquo;s story, one at a time, from the forgotten corners of the web.</p></li>
-          <li class="card"><span class="icon" aria-hidden="true">&#9711;</span><h3>Stay out of the way</h3><p>Slash commands only. No reading your messages, no DMs, no pings.</p></li>
+          <li class="card"><span class="icon" aria-hidden="true">&#9711;</span><h3>Stay out of the way</h3><p>Slash commands, plus a direct mention during an AI demo. No reading other messages, no DMs, no pings.</p></li>
         </ul>
       </div>
     </section>
@@ -175,12 +176,80 @@
               <p class="rt">About Piko</p>
               <p>Piko is a small digital fox born inside the final glowing pixel of a forgotten website. Piko carries a lantern of lost ideas and hands out creative sparks and small, achievable quests.</p>
               <p><strong>Character page:</strong> this page<br><strong>Server invite:</strong> discord.gg/zxkSerrxWd</p>
-              <p>Piko was created with Grok Bot.</p>
+              <p>Created with Grok Bot.</p>
+              <p>Optional AI replies are routed through OpenRouter during controlled demo sessions. Please do not send sensitive information to Piko.</p>
+              <p class="foot">To talk with Piko during an active demo, mention Piko in a server message and include your question.</p>
+            </figure>
+          </article>
+
+          <article class="command" aria-labelledby="c-forget">
+            <div>
+              <h3 id="c-forget"><code class="cmd">/forget</code></h3>
+              <p>Erase Piko&rsquo;s short memory of your AI conversation. Works for everyone, any time, even when AI chat is off.</p>
+              <button type="button" class="copy-btn" data-copy="/forget" aria-label="Copy the /forget command">Copy command</button>
+            </div>
+            <figure class="reply" aria-label="Example reply to /forget">
+              <div class="who"><img src="assets/piko.svg" alt="" width="26" height="26"> Piko <span class="badge">APP</span></div>
+              <p>Your previous trail has faded from my lantern. We can begin again.</p>
+              <p class="foot">Only visible to you.</p>
+            </figure>
+          </article>
+
+          <article class="command" aria-labelledby="c-demo-start">
+            <div>
+              <h3 id="c-demo-start"><code class="cmd">/demo-start</code></h3>
+              <p><strong>Owner only.</strong> Turns AI conversation on for exactly one hour and shows when it ends. Only one demo can run at a time.</p>
+              <button type="button" class="copy-btn" data-copy="/demo-start" aria-label="Copy the /demo-start command">Copy command</button>
+            </div>
+            <figure class="reply" aria-label="Example reply to /demo-start">
+              <div class="who"><img src="assets/piko.svg" alt="" width="26" height="26"> Piko <span class="badge">APP</span></div>
+              <p>My AI lantern is lit! Mention me in a server message with your question until 7:00 PM UTC+8 (Asia/Manila).</p>
+              <p class="foot">Anyone else who tries it gets a polite &ldquo;owner only&rdquo; reply.</p>
+            </figure>
+          </article>
+
+          <article class="command" aria-labelledby="c-demo-stop">
+            <div>
+              <h3 id="c-demo-stop"><code class="cmd">/demo-stop</code></h3>
+              <p><strong>Owner only.</strong> Turns AI conversation off right away and clears everyone&rsquo;s saved conversation. Piko stays online and the other commands keep working.</p>
+              <button type="button" class="copy-btn" data-copy="/demo-stop" aria-label="Copy the /demo-stop command">Copy command</button>
+            </div>
+            <figure class="reply" aria-label="Example reply to /demo-stop">
+              <div class="who"><img src="assets/piko.svg" alt="" width="26" height="26"> Piko <span class="badge">APP</span></div>
+              <p>The AI lantern is tucked away. All chat memories are cleared. My other commands still work!</p>
             </figure>
           </article>
         </div>
         <p class="sample-note">Sample replies are examples. /lore, /quest, and /spark each pick a different entry every time and avoid repeating the last one.</p>
         <p class="sr-only" role="status" aria-live="polite" id="copy-status"></p>
+      </div>
+    </section>
+
+    <section id="ai-chat" aria-labelledby="ai-chat-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="ai-chat-title">Talking with Piko (AI chat)</h2>
+          <p class="section-intro">Beyond the slash commands, Piko can hold a short, in-character conversation, but only during a controlled demo.</p>
+        </div>
+
+        <p class="notice" role="note"><strong>Privacy warning:</strong> please do not send sensitive information to Piko. No passwords, API keys, tokens, payment details, or personal details, ever.</p>
+
+        <div class="chat-how">
+          <h3>How to talk with Piko</h3>
+          <p>To talk with Piko during an active demo, mention Piko in a server message and include your question. Every new AI request must directly mention Piko.</p>
+          <figure class="reply" aria-label="Example message to Piko">
+            <div class="who">You</div>
+            <p><code class="inline-cmd">@Piko Give me a tiny creative project for tonight.</code></p>
+          </figure>
+        </div>
+
+        <ul class="card-grid facts">
+          <li class="card"><span class="icon" aria-hidden="true">&#9201;</span><h3>One-hour demos only</h3><p>AI replies are available only during an active, controlled one-hour demonstration. <code class="inline-cmd">/demo-start</code> and <code class="inline-cmd">/demo-stop</code> are owner-only. When no demo is running, Piko answers that the AI lantern is resting.</p></li>
+          <li class="card"><span class="icon" aria-hidden="true">&#9889;</span><h3>OpenRouter free router</h3><p>AI requests use OpenRouter&rsquo;s free-model router (<code class="inline-cmd">openrouter/free</code>). The underlying free model may vary from one reply to the next, so Piko&rsquo;s personality comes from its instructions, not a single model.</p></li>
+          <li class="card"><span class="icon" aria-hidden="true">&#9998;</span><h3>Temporary memory</h3><p>Conversation context is temporary, kept in memory only, and separated per member: only your own last 6 messages, never written to disk. It is cleared by <code class="inline-cmd">/forget</code>, by <code class="inline-cmd">/demo-stop</code>, when the demo expires, and after an hour of inactivity.</p></li>
+          <li class="card"><span class="icon" aria-hidden="true">&#9873;</span><h3>Small, fair limits</h3><p>A couple of AI replies per member per minute, a handful per demo, and a daily cap for the whole server keep the free service free.</p></li>
+          <li class="card"><span class="icon" aria-hidden="true">&#10084;</span><h3>Scripted commands always work</h3><p><code class="inline-cmd">/hello</code>, <code class="inline-cmd">/lore</code>, <code class="inline-cmd">/quest</code>, <code class="inline-cmd">/spark</code>, <code class="inline-cmd">/about</code> and <code class="inline-cmd">/forget</code> stay available while AI conversation is disabled.</p></li>
+        </ul>
       </div>
     </section>
 
@@ -199,7 +268,7 @@
   <footer>
     <div class="wrap">
       <p>Piko, The Lantern Fox &mdash; an original character.</p>
-      <p>No trackers, no ads, no cookies. Piko is a bot and never collects personal data.</p>
+      <p>No trackers, no ads, no cookies. Piko is a bot and does not collect personal data.</p>
     </div>
   </footer>
 

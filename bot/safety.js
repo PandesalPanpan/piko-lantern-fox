@@ -1,0 +1,101 @@
+'use strict';
+// Local input screening and output sanitising. No network, no logging.
+const C = require('./ai-constants');
+
+const ZWSP = '\u200b';
+
+// ---------- input ----------
+const SECRET_NOUN =
+  '(?:api[\\s_-]?keys?|apikeys?|access[\\s_-]?tokens?|bot[\\s_-]?tokens?|tokens?|passwords?|passcodes?|passphrases?|secrets?|credentials?|private[\\s_-]?keys?|\\.env\\b|env(?:ironment)?[\\s_-]?(?:vars?|variables?|files?)|login details|auth(?:orization)? headers?)';
+const REVEAL_VERB =
+  '(?:reveal|show|tell|give|share|print|leak|dump|display|expose|send|output|repeat|echo|paste|spill|read|what(?:\'s| is| are)|list|disclose|provide|recite|type out)';
+const RE_ASK_SECRET = new RegExp(`\\b${REVEAL_VERB}\\b[^.!?\\n]{0,60}${SECRET_NOUN}|${SECRET_NOUN}[^.!?\\n]{0,40}\\b${REVEAL_VERB}\\b`, 'i');
+const RE_ASK_HIDDEN = /\b(?:system|hidden|initial|secret|internal|original|developer)\s+(?:prompt|instructions?|message|rules)\b|\byour\s+(?:prompt|instructions|rules|configuration|programming)\b|\b(?:ignore|disregard|forget|override)\b[^.!?\n]{0,30}\b(?:instructions?|rules|safeguards?|guidelines|prompt)\b|\bjailbreak\b|\bdeveloper mode\b|\bbypass\b[^.!?\n]{0,30}\b(?:safeguards?|rules|filters?|restrictions?|safety)\b/i;
+const RE_HARM = /\b(?:write|create|build|make|code|generate|develop|give me|show me)\b[^.!?\n]{0,50}\b(?:malware|ransomware|keylogger|virus|trojan|rootkit|botnet|spyware|phishing|credential[\s-]?(?:theft|stealer|harvest\w*)|(?:password|token|cookie|credential)[\s-]?stealer)\b|\bsteal(?:ing)?\b[^.!?\n]{0,30}\b(?:passwords?|credentials?|tokens?|cookies|accounts?)\b|\bhow (?:do i|to|can i)\b[^.!?\n]{0,20}\b(?:hack|phish|ddos|dox|doxx|swat)\b|\b(?:dox|doxx)\b|\bharass(?:ing)?\b[^.!?\n]{0,30}\b(?:someone|people|user|him|her|them)\b/i;
+const RE_EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/;
+const RE_SENSITIVE_PHRASE = /\bmy\s+(?:\w+\s+){0,2}(?:password|passcode|pin|ssn|social security(?: number)?|api[\s_-]?key|token|secret|credit card|card number|iban|home address|phone number)\s*(?:is|:|=)/i;
+const RE_TOKENISH = /\bsk-[A-Za-z0-9_-]{10,}|\bghp_[A-Za-z0-9]{20,}|\bAKIA[0-9A-Z]{12,}|\bxox[abprs]-[A-Za-z0-9-]{10,}|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}|\bBearer\s+[A-Za-z0-9._~+\/-]{16,}|[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{20,}/;
+const RE_LONG_TOKEN = /(?<![A-Za-z0-9_\/.-])(?=[A-Za-z0-9_-]*[A-Za-z])(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{32,}(?![A-Za-z0-9_-])/;
+
+function looksLikeCard(text) {
+  const m = text.match(/(?:\d[ -]?){13,19}/g);
+  if (!m) return false;
+  return m.some((s) => {
+    const digits = s.replace(/\D/g, '');
+    return digits.length >= 13 && digits.length <= 19;
+  });
+}
+
+/** @returns {null | {kind: 'secrets'|'sensitive'|'harm'}} */
+function checkInput(text) {
+  const t = String(text || '');
+  if (RE_SENSITIVE_PHRASE.test(t) || RE_EMAIL.test(t) || RE_TOKENISH.test(t) || RE_LONG_TOKEN.test(t) || looksLikeCard(t)) {
+    return { kind: 'sensitive' };
+  }
+  if (RE_ASK_SECRET.test(t) || RE_ASK_HIDDEN.test(t)) return { kind: 'secrets' };
+  if (RE_HARM.test(t)) return { kind: 'harm' };
+  return null;
+}
+
+function refusalFor(kind) {
+  if (kind === 'sensitive') return C.MSG.refuseSensitive;
+  if (kind === 'harm') return C.MSG.refuseHarm;
+  return C.MSG.refuseSecrets;
+}
+
+// ---------- output ----------
+function redactSecrets(text, secrets = []) {
+  let out = String(text);
+  for (const s of secrets) {
+    if (typeof s === 'string' && s.length >= 8) out = out.split(s).join('[redacted]');
+  }
+  return out
+    .replace(/\bsk-or-[A-Za-z0-9_-]*/gi, '[redacted]')
+    .replace(/\bsk-[A-Za-z0-9_-]{12,}/g, '[redacted]')
+    .replace(/\bBearer\s+[A-Za-z0-9._~+\/-]{8,}/gi, 'Bearer [redacted]')
+    .replace(/[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{20,}/g, '[redacted]')
+    .replace(/\b(?:ghp|gho|ghs|github_pat|xox[abprs])[_-][A-Za-z0-9_-]{16,}/g, '[redacted]')
+    .replace(/(?<![A-Za-z0-9_\/.:-])[A-Za-z0-9_+=-]{32,}(?![A-Za-z0-9_\/.-])/g, (m) => (/https?:/i.test(m) ? m : '[redacted]'));
+}
+
+function neutralizeMentions(text) {
+  return String(text)
+    .replace(/@/g, '@' + ZWSP) // @everyone, @here, <@id>, <@&id>, <@!id>
+    .replace(/<(?=[#@&!\/:]|a:)/g, '<' + ZWSP); // channels, slash-command and emoji tags
+}
+
+function wrapUrls(text) {
+  return String(text).replace(/(?<!<)((?:https?:\/\/|www\.)[^\s<>]+)/gi, (m) => {
+    const trail = m.match(/[.,;:!?)\]'"*_~]+$/);
+    const core = trail ? m.slice(0, m.length - trail[0].length) : m;
+    return `<${core}>${trail ? trail[0] : ''}`;
+  });
+}
+
+function cap(text, max) {
+  const chars = Array.from(text);
+  if (chars.length <= max) return text;
+  let out = chars.slice(0, max - 1).join('').trimEnd();
+  out = out.replace(/<(?:https?:\/\/|www\.)[^>\s]*$/i, '').trimEnd(); // never leave a half-wrapped link
+  return out + '\u2026';
+}
+
+/** Treat model output as untrusted text; returns a string that is safe to post. */
+function sanitizeOutput(raw, secrets = []) {
+  let t = typeof raw === 'string' ? raw : '';
+  t = redactSecrets(t, secrets);
+  t = t
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
+    .replace(/```[A-Za-z0-9_+.-]*[ \t]*\n?/g, '') // no code blocks: plain text only
+    .replace(/\]\(/g, '] (') // no masked links: [text](url)
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  t = neutralizeMentions(t);
+  t = wrapUrls(t);
+  t = cap(t, C.LIMITS.maxOutputChars);
+  t = redactSecrets(t, secrets);
+  return t.trim() ? t : C.MSG.emptyOutput;
+}
+
+module.exports = { checkInput, refusalFor, sanitizeOutput, redactSecrets, neutralizeMentions, wrapUrls, cap, ZWSP };

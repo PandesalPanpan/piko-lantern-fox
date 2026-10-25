@@ -1,7 +1,12 @@
 'use strict';
-const { Client, GatewayIntentBits, Events, ActivityType, MessageFlags } = require('discord.js');
+const { Client, Events, ActivityType, MessageFlags } = require('discord.js');
 const { loadConfig, shortError } = require('./config');
-const { createHandlers } = require('./commands');
+const path = require('node:path');
+const { createHandlers, AI_COMMAND_NAMES } = require('./commands');
+const { INTENTS } = require('./intents');
+const { createAiService } = require('./ai-service');
+const { handleAiCommand } = require('./ai-discord');
+const { createMessageHandler } = require('./message-handler');
 
 let cfg;
 try {
@@ -14,15 +19,17 @@ try {
 const log = (msg) => console.log(`[${new Date().toISOString()}] ${msg}`);
 const warn = (msg) => console.error(`[${new Date().toISOString()}] ${msg}`);
 
-process.on('unhandledRejection', (reason) => warn('Unhandled rejection: ' + shortError(reason, cfg.token)));
+process.on('unhandledRejection', (reason) => warn('Unhandled rejection: ' + shortError(reason, cfg.secrets)));
 process.on('uncaughtException', (err) => {
-  warn('Uncaught exception: ' + shortError(err, cfg.token));
+  warn('Uncaught exception: ' + shortError(err, cfg.secrets));
   process.exit(1);
 });
 
-// Only the Guilds intent: no privileged intents, no message content, no DMs.
+// Guilds + GuildMessages only (both non-privileged). Discord still delivers the text of messages
+// that directly mention the bot, so the privileged content intent stays off. No DMs, no voice.
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds],
+  intents: INTENTS,
+  partials: [],
   allowedMentions: { parse: [] },
   presence: {
     status: 'online',
@@ -31,6 +38,18 @@ const client = new Client({
 });
 
 const handlers = createHandlers({ pageUrl: cfg.pageUrl });
+
+// AI conversation: disabled on start unless a still-valid demo session is restored from run/demo.json.
+// Logs only counts, timestamps, latency, success/failure and the returned model id; never message text.
+const ai = createAiService({
+  apiKey: cfg.openrouterKey,
+  ownerId: cfg.ownerId,
+  discordToken: cfg.token,
+  runDir: path.resolve(__dirname, '..', 'run'),
+  log: (m) => log(m),
+});
+ai.start();
+const onMessage = createMessageHandler({ ai, guildId: cfg.guildId, getBotId: () => client.user && client.user.id });
 
 // Each interaction id is handled once, even if the gateway redelivers it.
 const handled = new Map();
@@ -44,6 +63,8 @@ function firstTime(id) {
 
 client.once(Events.ClientReady, (c) => {
   log(`Piko is awake and listening for lost ideas (${c.guilds.cache.size} server(s)).`);
+  const st = ai.status();
+  log(`AI chat: ${st.demoActive ? 'demo active' : 'disabled (no active demo)'}; key configured: ${st.keyConfigured ? 'yes' : 'no'}; today ${st.todayCount}/${st.dailyLimit}.`);
   c.user.setPresence({
     status: 'online',
     activities: [{ name: 'listening for lost ideas', type: ActivityType.Custom }],
@@ -56,13 +77,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
   if (!firstTime(interaction.id)) return;
   if (interaction.replied || interaction.deferred) return;
 
+  const isAi = AI_COMMAND_NAMES.includes(interaction.commandName);
   const handler = handlers[interaction.commandName];
-  if (!handler) return;
+  if (!handler && !isAi) return;
 
   try {
-    await interaction.reply(handler());
+    if (isAi) await handleAiCommand(ai, interaction);
+    else await interaction.reply(handler());
   } catch (err) {
-    warn(`Command /${interaction.commandName} failed: ${shortError(err, cfg.token)}`);
+    warn(`Command /${interaction.commandName} failed: ${shortError(err, cfg.secrets)}`);
     try {
       if (!interaction.replied && !interaction.deferred) {
         await interaction.reply({
@@ -72,16 +95,22 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
       }
     } catch (err2) {
-      warn('Could not send the error reply: ' + shortError(err2, cfg.token));
+      warn('Could not send the error reply: ' + shortError(err2, cfg.secrets));
     }
   }
 });
 
-client.on(Events.Error, (err) => warn('Client error: ' + shortError(err, cfg.token)));
+// No handler for edited messages: edits are never processed.
+client.on(Events.MessageCreate, (message) => {
+  onMessage(message).catch((err) => warn('Message handler failed: ' + shortError(err, cfg.secrets)));
+});
+
+client.on(Events.Error, (err) => warn('Client error: ' + shortError(err, cfg.secrets)));
 client.on(Events.ShardDisconnect, (ev, id) => warn(`Shard ${id} disconnected (code ${ev && ev.code}).`));
 client.on(Events.ShardReconnecting, (id) => log(`Shard ${id} reconnecting.`));
 
 function shutdown(signal) {
+  ai.shutdown();
   log(`Received ${signal}; putting the lantern down.`);
   client.destroy().finally(() => process.exit(0));
   setTimeout(() => process.exit(0), 3000).unref();
@@ -90,7 +119,7 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 client.login(cfg.token).catch((err) => {
-  warn('Login failed: ' + shortError(err, cfg.token));
+  warn('Login failed: ' + shortError(err, cfg.secrets));
   // Invalid token / disallowed intents will not fix themselves: exit 3 so the supervisor stops.
   process.exit(/TokenInvalid|DisallowedIntents|invalid token/i.test(String(err && (err.code || err.message))) ? 3 : 1);
 });

@@ -243,6 +243,20 @@ h3 { font-family: var(--serif); font-size: 1.25rem; margin: 0 0 .35rem; color: v
 .reply .foot { margin-top: .5rem; font-size: .85rem; color: var(--muted); }
 .sample-note { color: var(--muted); font-size: .92rem; margin-top: 1rem; }
 
+/* AI chat section */
+.notice {
+  margin: 0 0 1.5rem; padding: 1rem 1.2rem; border-radius: var(--radius);
+  background: rgba(255, 154, 60, .12); border: 1px solid rgba(255, 154, 60, .6); border-left-width: 6px; color: var(--cream);
+}
+.chat-how { margin: 0 0 1.75rem; max-width: 42rem; }
+.chat-how p { color: var(--muted); margin: .3rem 0 1rem; }
+.inline-cmd {
+  font-family: var(--mono); font-size: .92em; color: var(--cyan); background: var(--midnight-900);
+  padding: .1rem .4rem; border-radius: 6px; border: 1px solid rgba(111, 227, 255, .25); overflow-wrap: anywhere;
+}
+.card-grid.facts { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.card-grid.facts .card p { overflow-wrap: anywhere; }
+
 /* Join */
 .join { text-align: center; }
 .join .panel {
