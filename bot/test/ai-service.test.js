@@ -490,7 +490,7 @@ test('model output is sanitized: mentions, URLs, secrets, length, allowedMention
   const [r] = await env.say('u1', 'greet the crowd');
   assert.deepEqual(r.allowedMentions, { parse: [] });
   assert.ok(!/@everyone|@here|<@|<#/.test(r.content));
-  assert.ok(r.content.includes('<https://example.com/x>'));
+  assert.ok(!/https?:|example\.com/.test(r.content), 'links are stripped');
   assert.ok(!r.content.includes(FAKE_KEY) && !r.content.includes(FAKE_DISCORD_TOKEN));
   assert.ok(r.content.split('\n-#')[0].length <= 600);
 });
@@ -699,4 +699,104 @@ test('/demo-start announcement names the dedicated channel (and keeps the old te
   assert.deepEqual(p.allowedMentions, { parse: [] });
   const without = makeEnv();
   assert.match(without.startDemo().content, /Mention me in a server message with your question until/);
+});
+
+// ---------- Sentinel review fixes ----------
+test('privacy note counts toward the 600-character cap (reply + suffix <= 600)', async () => {
+  const env = makeEnv();
+  env.startDemo();
+  const long = Array.from({ length: 80 }, (_, i) => `Sentence number ${i} is here.`).join(' ');
+  env.queue.push(ok(long), ok(long));
+  const [first] = await env.say('u1', 'tell me a lot');
+  assert.ok(first.content.includes(C.MSG.privacy));
+  assert.ok(first.content.length <= 600, String(first.content.length));
+  env.advance(61000);
+  const [second] = await env.say('u1', 'again');
+  assert.ok(!second.content.includes(C.MSG.privacy));
+  assert.ok(second.content.length <= 600 && second.content.length > 500);
+});
+
+test('static replies: at most one per member per 20 seconds, extras are silent', async () => {
+  const env = makeEnv();
+  env.startDemo();
+  const a = await env.say('u1', '');
+  assert.equal(a.length, 1);
+  assert.equal(a[0].content.startsWith('Hello, traveler'), true);
+  assert.equal((await env.say('u1', '')).length, 0); // greeting again
+  assert.equal((await env.say('u1', 'x'.repeat(600))).length, 0); // too-long notice, same member
+  assert.equal((await env.say('u1', 'my password is hunter2 and my api key is abc')).length, 0); // refusal
+  assert.equal((await env.say('u2', '')).length, 1); // another member is independent
+  env.advance(21000);
+  assert.equal((await env.say('u1', 'x'.repeat(600))).length, 1); // window passed
+  assert.equal(env.calls.length, 0);
+});
+
+test('static cooldown covers the resting reply, refusals and the over-limit notice; real answers are never blocked', async () => {
+  const off = makeEnv();
+  assert.equal((await off.say('u1', 'hello there')).length, 1);
+  assert.equal((await off.say('u1', 'hello there')).length, 0);
+  assert.equal(off.calls.length, 0);
+
+  const env = makeEnv();
+  env.startDemo();
+  assert.equal((await env.say('u1', 'my email is someone@example.com')).length, 1);
+  assert.equal((await env.say('u1', 'hello there friend')).length, 1); // a real answer is not blocked by a static reply
+  assert.equal(env.calls.length, 1);
+  assert.equal((await env.say('u1', 'my email is someone@example.com')).length, 0);
+});
+
+test('a returned model that is not openrouter/free or :free is never posted and halts AI like a 402', async () => {
+  const env = makeEnv();
+  env.startDemo();
+  env.queue.push(ok('A fine answer.', 'vendor/paid-model'), ok('should never be requested'));
+  const r = await env.say('u1', 'hello there');
+  assert.equal(r[0].content, C.MSG.unavailable);
+  assert.equal(env.calls.length, 1);
+  assert.ok(env.logs.some((l) => /reason=non-free-model/.test(l)));
+  assert.ok(!env.logs.join('\n').includes('A fine answer'));
+  assert.equal(env.ai.status().paymentStop, true);
+  env.advance(61000);
+  const again = await env.say('u1', 'hello again');
+  assert.equal(env.calls.length, 1); // halted: no further requests
+  assert.equal(again[0].content, C.MSG.disabled);
+});
+
+test('model ids openrouter/free and *:free are accepted; a missing model id is refused', async () => {
+  const a = makeEnv(); a.startDemo();
+  a.queue.push(ok('Fine.', 'openrouter/free'));
+  assert.match((await a.say('u1', 'hello there'))[0].content, /^Fine\./);
+  const b = makeEnv(); b.startDemo();
+  b.queue.push({ ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'No model field' } }] }) });
+  assert.equal((await b.say('u1', 'hello there'))[0].content, C.MSG.unavailable);
+});
+
+test('HTTP 200 with an error object maps its code like the HTTP status', async () => {
+  const body = (code) => ({ ok: true, status: 200, json: async () => ({ error: { code, message: 'hidden detail' } }) });
+  // 402 -> halt, no retry
+  const e402 = makeEnv(); e402.startDemo();
+  e402.queue.push(body(402), ok('never'));
+  assert.equal((await e402.say('u1', 'hello there'))[0].content, C.MSG.unavailable);
+  assert.equal(e402.calls.length, 1);
+  assert.equal(e402.ai.status().paymentStop, true);
+  // 401 -> key rejected, no retry
+  const e401 = makeEnv(); e401.startDemo();
+  e401.queue.push(body(401), ok('never'));
+  await e401.say('u1', 'hello there');
+  assert.equal(e401.calls.length, 1);
+  assert.equal(e401.ai.status().keyRejected, true);
+  // 429 (quota) -> no retry, no halt
+  const e429 = makeEnv(); e429.startDemo();
+  e429.queue.push(body(429), ok('never'));
+  assert.equal((await e429.say('u1', 'hello there'))[0].content, C.MSG.unavailable);
+  assert.equal(e429.calls.length, 1);
+  // 503 -> transient, one retry
+  const e503 = makeEnv(); e503.startDemo();
+  e503.queue.push(body(503), ok('Recovered answer.'));
+  assert.match((await e503.say('u1', 'hello there'))[0].content, /^Recovered answer\./);
+  assert.equal(e503.calls.length, 2);
+  // string/odd code -> unusable-style failure, no content logged
+  const odd = makeEnv(); odd.startDemo();
+  odd.queue.push(body('weird'));
+  await odd.say('u1', 'hello there');
+  assert.ok(!odd.logs.join('\n').includes('hidden detail'));
 });

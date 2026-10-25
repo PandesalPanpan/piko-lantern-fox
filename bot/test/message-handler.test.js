@@ -81,6 +81,7 @@ test('mention-only message gets the exact greeting without fetch or quota', asyn
     await handler(m);
     assert.equal(m.replies.length, 1);
     assert.equal(m.replies[0].content, GREETING);
+    env.advance(21000); // static-reply cooldown
   }
   assert.equal(env.calls.length, 0);
   assert.equal(env.ai.status().todayCount, 0);
@@ -110,7 +111,7 @@ test('a direct mention starts a request with the mention stripped; reply never p
   const r = m.replies[0];
   assert.deepEqual(r.allowedMentions, { parse: [], repliedUser: false });
   assert.ok(!/@everyone|<@/.test(r.content));
-  assert.ok(r.content.includes('<https://example.com/x>'));
+  assert.ok(!/https?:|example\.com/.test(r.content), 'links are stripped');
   assert.equal(m.typing.n >= 1, true);
 });
 
@@ -208,7 +209,7 @@ test('intents are exactly Guilds + GuildMessages + MessageContent; no messageUpd
   assert.ok(!/GatewayIntentBits\.(GuildMembers|GuildPresences|DirectMessages)/.test(index));
   assert.match(index, /Events\.MessageCreate/);
   assert.match(index, /partials:\s*\[\]/);
-  assert.match(index, /chatChannelId:\s*cfg\.chatChannelId/);
+  assert.match(index, /chatChannelIds:\s*cfg\.chatChannelIds/);
 });
 
 test('register-commands: exactly 8 commands, no /chat', () => {

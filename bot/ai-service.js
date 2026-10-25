@@ -6,6 +6,7 @@ const path = require('node:path');
 const C = require('./ai-constants');
 const { LIMITS, MSG } = C;
 const { requestCompletion } = require('./openrouter');
+const isFreeModel = (m) => typeof m === 'string' && (m === C.MODEL || /:free$/.test(m));
 const { checkInput, refusalFor, sanitizeOutput, assessReply } = require('./safety');
 const { createContextStore } = require('./context-store');
 const { createUsage, writeJsonAtomic } = require('./usage');
@@ -35,6 +36,7 @@ function createAiService(opts = {}) {
   const {
     apiKey = '',
     ownerId = '',
+    chatChannelIds = [],
     chatChannelId = '',
     discordToken = '',
     runDir,
@@ -177,8 +179,10 @@ function createAiService(opts = {}) {
     beginDemo(startMs, endMs);
     log(`ai demo started start=${new Date(startMs).toISOString()} end=${new Date(endMs).toISOString()}`);
     const epoch = Math.floor(endMs / 1000);
-    const how = chatChannelId
-      ? `Chat with me in <#${chatChannelId}> without a mention, or mention me in any other channel with your question`
+    const chans = [...new Set([...(Array.isArray(chatChannelIds) ? chatChannelIds : []), chatChannelId].map((x) => String(x || '').trim()).filter((x) => /^\d{15,25}$/.test(x)))];
+    const chanList = chans.length > 1 ? `${chans.slice(0, -1).map((c) => `<#${c}>`).join(', ')} or <#${chans[chans.length - 1]}>` : chans.map((c) => `<#${c}>`).join('');
+    const how = chans.length
+      ? `Chat with me in ${chanList} without a mention, or mention me in any other channel with your question`
       : 'Mention me in a server message with your question';
     return payload(
       `My AI lantern is lit! ${how} until ${formatManila(endMs)} (<t:${epoch}:t>, <t:${epoch}:R>).\n\n` +
@@ -238,13 +242,13 @@ function createAiService(opts = {}) {
 
   const limitMessage = (reason) => (reason === 'minute' ? MSG.minute : reason === 'session' ? MSG.session : MSG.dailyLimit);
 
-  function haltFor(category) {
+  function haltFor(category, reason) {
     if (category === 'auth' || category === 'bad-headers') {
       keyRejected = true;
       log('ai disabled until restart: OpenRouter key was rejected (auth error)');
     } else if (category === 'payment') {
       paymentStop = true;
-      log('ai disabled until restart: OpenRouter reported payment required (402); no retry');
+      log('ai disabled until restart: ' + (reason === 'non-free-model' ? 'reason=non-free-model' : 'OpenRouter reported payment required (402)') + '; no retry');
     } else return;
     store.clearAll();
   }
@@ -258,9 +262,6 @@ function createAiService(opts = {}) {
     const model = r.ok ? ` model=${r.model || 'unknown'}${extra}` : '';
     const outcome = r.ok ? 'success' : `failure category=${r.category} status=${r.status}`;
     log(`ai request attempt=${attempt} ${outcome} latency=${r.latencyMs}ms${model} today=${usage.count()}/${usage.limit}`);
-    if (r.ok && r.model && !/:free$/.test(r.model) && r.model !== C.MODEL) {
-      log('ai note: returned model id is not tagged :free');
-    }
   }
 
   // ---------- mention-triggered conversation ----------
@@ -281,6 +282,21 @@ function createAiService(opts = {}) {
     return true;
   }
 
+  // Static replies (greeting, busy, notices, refusals, "resting"): at most one per member per STATIC_COOLDOWN_MS;
+  // anything extra inside the window is ignored silently. Real model answers are never affected.
+  const STATIC_COOLDOWN_MS = 20 * 1000;
+  const staticAt = new Map();
+  function staticDue(userId) {
+    const t = now();
+    for (const [k, v] of staticAt) if (t - v >= STATIC_COOLDOWN_MS) staticAt.delete(k);
+    return !staticAt.has(userId);
+  }
+  async function sayStatic(reply, userId, message) {
+    if (!staticDue(userId)) return undefined;
+    staticAt.set(userId, now());
+    return reply(payload(message));
+  }
+
   async function converse(io) {
     const { messageId, reply } = io;
     const userId = String(io.userId);
@@ -294,24 +310,25 @@ function createAiService(opts = {}) {
     const text = typeof io.text === 'string' ? io.text.trim() : '';
     // `quiet` = an unmentioned message in the dedicated channel: stay silent unless a short notice is due.
     const quiet = io.quiet === true;
-    if (!text) return quiet ? undefined : reply(payload(MSG.greeting));
+    if (!text) return quiet ? undefined : sayStatic(reply, userId, MSG.greeting);
 
-    if (hardBlock() || !demo) return quiet ? undefined : reply(payload(MSG.disabled));
+    if (hardBlock() || !demo) return quiet ? undefined : sayStatic(reply, userId, MSG.disabled);
     if (usage.reached()) {
-      if (!quiet) return reply(payload(MSG.disabled));
+      if (!quiet) return sayStatic(reply, userId, MSG.disabled);
       if (dailyNoticeAt !== null && now() - dailyNoticeAt < DAILY_NOTICE_MS) return undefined;
+      if (!staticDue(userId)) return undefined;
       dailyNoticeAt = now();
-      return reply(payload(MSG.disabled));
+      return sayStatic(reply, userId, MSG.disabled);
     }
 
     if (text.length > LIMITS.maxInputChars) {
-      return reply(payload(`That's a lot for my little lantern. Please keep it under ${LIMITS.maxInputChars} characters.`));
+      return sayStatic(reply, userId, `That's a lot for my little lantern. Please keep it under ${LIMITS.maxInputChars} characters.`);
     }
 
     const refusal = checkInput(text);
-    if (refusal) return reply(payload(refusalFor(refusal.kind))); // no fetch, no quota, not stored
+    if (refusal) return sayStatic(reply, userId, refusalFor(refusal.kind)); // no fetch, no quota, not stored
 
-    if (inflight.has(userId)) return quiet ? undefined : reply(payload(MSG.busy));
+    if (inflight.has(userId)) return quiet ? undefined : sayStatic(reply, userId, MSG.busy);
     inflight.add(userId);
     const sessionId = demo.id;
     const versionAtStart = store.version();
@@ -320,7 +337,7 @@ function createAiService(opts = {}) {
       const first = reserve(userId);
       if (!first.ok) {
         if (quiet && !coolNoticeDue(userId)) return undefined;
-        return await reply(payload(limitMessage(first.reason)));
+        return await sayStatic(reply, userId, limitMessage(first.reason));
       }
       try { if (io.startTyping) stopTyping = io.startTyping() || stopTyping; } catch (_) { /* best effort */ }
 
@@ -330,9 +347,14 @@ function createAiService(opts = {}) {
       const messages = [{ role: 'system', content: C.SYSTEM_PROMPT }, ...convo];
 
       const ask = async (attemptNo) => {
-        const r = await requestCompletion({ fetchImpl, apiKey, messages, timeoutMs, now });
+        let r = await requestCompletion({ fetchImpl, apiKey, messages, timeoutMs, now });
         if (r.notSent) release(userId);
         logAttempt(r, attemptNo);
+        if (r.ok && !isFreeModel(r.model)) {
+          // Never post (or pay for) anything that is not the free router or a :free model: halt like a 402.
+          log('ai response refused reason=non-free-model');
+          r = { ok: false, category: 'payment', transient: false, status: r.status, latencyMs: r.latencyMs, reason: 'non-free-model' };
+        }
         return r;
       };
       const assess = (r) => {
@@ -355,7 +377,7 @@ function createAiService(opts = {}) {
       }
 
       if (!result.ok) {
-        haltFor(result.category);
+        haltFor(result.category, result.reason);
         return await reply(payload(MSG.unavailable));
       }
       if (!verdict.usable) return await reply(payload(MSG.noWords));
@@ -363,14 +385,13 @@ function createAiService(opts = {}) {
       // The session may have ended (or the member may have run /forget) while we waited.
       if (!demo || demo.id !== sessionId) return await reply(payload(MSG.disabled));
 
-      const clean = sanitizeOutput(verdict.text, secrets);
+      // The one-time privacy note counts toward the cap: reply text + note <= LIMITS.maxOutputChars.
+      const needsNote = !introduced.has(userId);
+      const suffix = needsNote ? `\n-# ${MSG.privacy}` : '';
+      const clean = sanitizeOutput(verdict.text, secrets, LIMITS.maxOutputChars - Array.from(suffix).length);
       if (store.version() === versionAtStart) store.appendTurn(userId, text, clean);
-      let out = clean;
-      if (!introduced.has(userId)) {
-        introduced.add(userId);
-        out += `\n-# ${MSG.privacy}`;
-      }
-      return await reply(payload(out));
+      if (needsNote) introduced.add(userId);
+      return await reply(payload(clean + suffix));
     } catch (_) {
       log('ai conversation handler error (details withheld)');
       try { await reply(payload(MSG.unavailable)); } catch (_2) { /* nothing more to do */ }

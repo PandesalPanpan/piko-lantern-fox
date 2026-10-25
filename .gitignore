@@ -15,3 +15,7 @@ npm-debug.log*
 # misc
 .DS_Store
 .venv*/
+
+# local proof screenshots and avatar source (not for the repo)
+proof/
+assets/piko-new-avatar.png

@@ -71,7 +71,7 @@ const ABOUT = {
   availability:
     'To talk with Piko during an active demo, mention Piko in a server message and include your question. ' +
     'Example: @Piko Give me a tiny creative project for tonight. ' +
-    'In the dedicated #piko-chat channel, Piko replies to every message without a mention while a demo is active. ' +
+    'In the dedicated chat channels (#piko-chat and #general), Piko replies to every message without a mention while a demo is active. ' +
     'AI replies may be unavailable when demo mode is inactive or free capacity is exhausted; the slash commands always work.',
 };
 

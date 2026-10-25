@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { checkInput, sanitizeOutput, ZWSP } = require('../safety');
+const { checkInput, sanitizeOutput, stripLinks, ZWSP } = require('../safety');
 const C = require('../ai-constants');
 const { FAKE_KEY, FAKE_DISCORD_TOKEN } = require('./_helpers');
 
@@ -48,13 +48,22 @@ test('output: @everyone/@here and all mention syntax is neutralized', () => {
   assert.ok(!/<@&/.test(out));
 });
 
-test('output: bare URLs are wrapped, wrapped ones are not doubled, masked links are broken', () => {
+test('output: URLs and invite links are removed entirely, with tidy leftovers', () => {
   const out = sanitizeOutput('See https://example.com/a, and www.example.org. Also <https://ok.example/x> and [click](https://evil.example/p).');
-  assert.ok(out.includes('<https://example.com/a>,'));
-  assert.ok(out.includes('<www.example.org>.'));
-  assert.ok(out.includes('<https://ok.example/x>') && !out.includes('<<'));
-  assert.ok(!out.includes('](') );
-  assert.ok(out.includes('<https://evil.example/p>'));
+  assert.ok(!/https?:|www\.|example|<|\]\(/.test(out), out);
+  assert.equal(out, 'See, and. Also and click.');
+  for (const t of ['Join discord.gg/abc123 now', 'Join https://discord.com/invite/xyz now', 'Join discord.com/invite/qq now', 'Join (https://discordapp.com/invite/zz) now']) {
+    const o = sanitizeOutput(t);
+    assert.ok(!/discord|invite|https?:/i.test(o), o);
+    assert.match(o, /^Join\s?now$|^Join now$/);
+  }
+  assert.equal(stripLinks('a [x] (y) ok'), 'a [x] (y) ok');
+  assert.equal(sanitizeOutput('No links here, just words.'), 'No links here, just words.');
+});
+
+test('output: the max length parameter is honoured (room for the privacy note)', () => {
+  const long = Array.from({ length: 80 }, (_, i) => `Sentence number ${i} is here.`).join(' ');
+  assert.ok(sanitizeOutput(long, [], 540).length <= 540);
 });
 
 test('output: code fences are removed (plain text only)', () => {

@@ -11,6 +11,16 @@ const SNOWFLAKE = /^\d{15,25}$/;
  * Read and validate configuration. Throws an Error that names the missing/invalid
  * variable but NEVER includes any value.
  */
+/** Comma/space separated snowflakes -> unique valid ids (invalid entries are dropped silently). */
+function parseChannelIds(value) {
+  const out = [];
+  for (const part of String(value || '').split(/[\s,;]+/)) {
+    const id = part.trim();
+    if (SNOWFLAKE.test(id) && !out.includes(id)) out.push(id);
+  }
+  return out;
+}
+
 function loadConfig({ requireToken = true, requireGuild = true } = {}) {
   const env = process.env;
   const problems = [];
@@ -45,9 +55,10 @@ function loadConfig({ requireToken = true, requireGuild = true } = {}) {
   if (!SNOWFLAKE.test(ownerId)) ownerId = '';
   const openrouterKey = (env.OPENROUTER_API_KEY || '').trim();
 
-  let chatChannelId = (env.PIKO_CHAT_CHANNEL_ID || '').trim();
-  if (!SNOWFLAKE.test(chatChannelId)) chatChannelId = '';
-  return { token, clientId, guildId, pageUrl, ownerId, chatChannelId, openrouterKey, secrets: [token, openrouterKey].filter(Boolean) };
+  // No-mention channels: PIKO_CHAT_CHANNEL_IDS (comma-separated) plus the legacy single PIKO_CHAT_CHANNEL_ID.
+  const chatChannelIds = parseChannelIds(`${env.PIKO_CHAT_CHANNEL_IDS || ''},${env.PIKO_CHAT_CHANNEL_ID || ''}`);
+  const chatChannelId = chatChannelIds[0] || ''; // first one, kept for backward compatibility
+  return { token, clientId, guildId, pageUrl, ownerId, chatChannelId, chatChannelIds, openrouterKey, secrets: [token, openrouterKey].filter(Boolean) };
 }
 
 /** Remove the token from any text before it is logged. */
@@ -68,4 +79,4 @@ function shortError(err, token) {
   return redact(`${name}${code}: ${msg}`, token).slice(0, 200);
 }
 
-module.exports = { loadConfig, redact, shortError };
+module.exports = { parseChannelIds, loadConfig, redact, shortError };

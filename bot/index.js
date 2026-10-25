@@ -26,7 +26,7 @@ process.on('uncaughtException', (err) => {
 });
 
 // Guilds + GuildMessages + MessageContent (privileged, approved): MessageContent is needed only to read
-// unmentioned messages in the one dedicated chat channel; elsewhere a direct mention is required.
+// unmentioned messages in the dedicated chat channel(s); elsewhere a direct mention is required.
 // No DMs, no voice.
 const client = new Client({
   intents: INTENTS,
@@ -45,13 +45,13 @@ const handlers = createHandlers({ pageUrl: cfg.pageUrl });
 const ai = createAiService({
   apiKey: cfg.openrouterKey,
   ownerId: cfg.ownerId,
-  chatChannelId: cfg.chatChannelId,
+  chatChannelIds: cfg.chatChannelIds,
   discordToken: cfg.token,
   runDir: path.resolve(__dirname, '..', 'run'),
   log: (m) => log(m),
 });
 ai.start();
-const onMessage = createMessageHandler({ ai, guildId: cfg.guildId, getBotId: () => client.user && client.user.id, chatChannelId: cfg.chatChannelId });
+const onMessage = createMessageHandler({ ai, guildId: cfg.guildId, getBotId: () => client.user && client.user.id, chatChannelIds: cfg.chatChannelIds });
 
 // Each interaction id is handled once, even if the gateway redelivers it.
 const handled = new Map();

@@ -89,8 +89,12 @@ async function requestCompletion({ fetchImpl = globalThis.fetch, apiKey, message
     let text = '';
     if (msg && typeof msg.content === 'string') text = msg.content;
     else if (msg && Array.isArray(msg.content)) text = msg.content.filter((p) => p && p.type === 'text' && typeof p.text === 'string').map((p) => p.text).join('');
-    if (data && data.error && !text) {
-      return { ok: false, category: 'other', transient: false, status, latencyMs: lat() };
+    if (data && data.error && typeof data.error === 'object') {
+      // HTTP 200 with an error object: map its numeric code/status like the equivalent HTTP status (no content logged).
+      const raw = Number(data.error.code !== undefined ? data.error.code : data.error.status);
+      const code = Number.isInteger(raw) && raw >= 400 && raw <= 599 ? raw : 0;
+      const category = code ? categorize(code) : 'other';
+      return { ok: false, category, transient: category === 'server', status: code || status, latencyMs: lat() };
     }
     const u = data && data.usage && typeof data.usage === 'object' ? data.usage : {};
     const num = (v) => (Number.isFinite(v) ? v : null);

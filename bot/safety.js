@@ -72,6 +72,24 @@ function wrapUrls(text) {
   });
 }
 
+/** Remove URLs and Discord invite links entirely (no wrapping), tidying leftover brackets and spaces. */
+function stripLinks(text) {
+  let t = String(text);
+  const tail = "[^\\s<>.,;:!?)\\]'\"*_~]";
+  const url = `(?:https?:\\/\\/|www\\.)[^\\s<>]*${tail}`;
+  const invite = `(?:discord(?:app)?\\.com\\/invite|discord\\.gg)\\/[^\\s<>]*${tail}`;
+  t = t
+    .replace(new RegExp(`\\[([^\\]\\n]*)\\]\\(\\s*<?(?:${url}|${invite})>?\\s*\\)`, 'gi'), '$1') // [text](url) -> text
+    .replace(new RegExp(`<(?:${url}|${invite})>`, 'gi'), '')
+    .replace(new RegExp(url, 'gi'), '')
+    .replace(new RegExp(`(?<![\\w@.])${invite}`, 'gi'), '')
+    .replace(/\(\s*\)|\[\s*\]|<\s*>/g, '')
+    .replace(/[ \t]+([.,;:!?])/g, '$1')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+\n/g, '\n');
+  return t.trim();
+}
+
 function cap(text, max) {
   const chars = Array.from(text);
   if (chars.length <= max) return text;
@@ -98,9 +116,10 @@ function capReply(text, max) {
 }
 
 /** Treat model output as untrusted text; returns a string that is safe to post. */
-function sanitizeOutput(raw, secrets = []) {
+function sanitizeOutput(raw, secrets = [], maxChars = C.LIMITS.maxOutputChars) {
   let t = typeof raw === 'string' ? raw : '';
   t = redactSecrets(t, secrets);
+  t = stripLinks(t); // model output never carries links or invites
   t = t
     .replace(/\r\n?/g, '\n')
     .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '')
@@ -109,8 +128,7 @@ function sanitizeOutput(raw, secrets = []) {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
   t = neutralizeMentions(t);
-  t = wrapUrls(t);
-  t = capReply(t, C.LIMITS.maxOutputChars);
+  t = capReply(t, maxChars);
   t = redactSecrets(t, secrets);
   return t.trim() ? t : C.MSG.emptyOutput;
 }
@@ -144,4 +162,4 @@ function assessReply(raw, model) {
   return { usable: true, text };
 }
 
-module.exports = { stripThink, assessReply, checkInput, refusalFor, sanitizeOutput, redactSecrets, neutralizeMentions, wrapUrls, cap, ZWSP };
+module.exports = { stripLinks, stripThink, assessReply, checkInput, refusalFor, sanitizeOutput, redactSecrets, neutralizeMentions, wrapUrls, cap, ZWSP };

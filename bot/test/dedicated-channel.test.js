@@ -260,6 +260,7 @@ test('config: PIKO_CHAT_CHANNEL_ID must be a snowflake; /about mentions the dedi
   const saved = { ...process.env };
   try {
     Object.assign(process.env, { DISCORD_TOKEN: ['A'.repeat(24), 'B'.repeat(6), 'C'.repeat(30)].join('.'), DISCORD_CLIENT_ID: '1563826219588386897', DISCORD_GUILD_ID: GUILD });
+    process.env.PIKO_CHAT_CHANNEL_IDS = ''; // keep a developer's real .env out of the test
     process.env.PIKO_CHAT_CHANNEL_ID = CHAT;
     assert.equal(loadConfig().chatChannelId, CHAT);
     process.env.PIKO_CHAT_CHANNEL_ID = 'not-an-id';
@@ -274,4 +275,69 @@ test('config: PIKO_CHAT_CHANNEL_ID must be a snowflake; /about mentions the dedi
   const text = JSON.stringify(createHandlers({}).about());
   assert.match(text, /#piko-chat/);
   assert.match(text, /mention Piko in a server message/);
+});
+
+// ---------- several no-mention channels (PIKO_CHAT_CHANNEL_IDS) ----------
+const GENERAL = '5000000000000000007';
+
+function setupMulti(ids) {
+  const env = makeEnv({ chatChannelIds: ids });
+  const handler = createMessageHandler({ ai: env.ai, guildId: GUILD, getBotId: () => BOT_ID, chatChannelIds: ids });
+  return { env, handler };
+}
+
+test('multi-channel: each listed channel works without a mention, a non-listed channel needs one', async () => {
+  const { env, handler } = setupMulti([CHAT, GENERAL]);
+  env.startDemo();
+  const a = msg(); await handler(a);
+  assert.equal(a.replies.length, 1);
+  env.advance(61000);
+  const b = msg({ fields: { channelId: GENERAL } }); await handler(b);
+  assert.equal(b.replies.length, 1);
+  assert.equal(env.calls.length, 2);
+  const c = msg({ fields: { channelId: OTHER_CH } }); await handler(c);
+  assert.equal(c.replies.length, 0);
+  assert.equal(env.calls.length, 2);
+  const d = msg({ content: `<@${BOT_ID}> hi there`, users: [BOT_ID], fields: { channelId: OTHER_CH } }); await handler(d);
+  assert.equal(d.replies.length, 1);
+});
+
+test('multi-channel: limits are shared across channels, other rules unchanged', async () => {
+  const { env, handler } = setupMulti([CHAT, GENERAL]);
+  env.startDemo();
+  await handler(msg()); env.advance(1000);
+  await handler(msg({ fields: { channelId: GENERAL } })); env.advance(1000);
+  const third = msg({ fields: { channelId: GENERAL } }); await handler(third);
+  assert.equal(env.calls.length, 2); // per-user 2/min shared across both channels
+  // no demo -> silent, bots ignored, @everyone ignored
+  const off = setupMulti([CHAT, GENERAL]);
+  const quiet = msg({ fields: { channelId: GENERAL } }); await off.handler(quiet);
+  assert.equal(quiet.replies.length, 0);
+  off.env.startDemo();
+  const bot = msg({ fields: { channelId: GENERAL, author: { id: 'b', bot: true } } }); await off.handler(bot);
+  const every = msg({ content: '@everyone hi', fields: { channelId: GENERAL } }); await off.handler(every);
+  assert.equal(bot.replies.length + every.replies.length, 0);
+  assert.equal(off.env.calls.length, 0);
+});
+
+test('multi-channel: the announcement lists both channels; config merges list + legacy variable', () => {
+  const env = makeEnv({ chatChannelIds: [CHAT, GENERAL] });
+  const p = env.startDemo();
+  assert.match(p.content, new RegExp(`Chat with me in <#${CHAT}> or <#${GENERAL}> without a mention, or mention me in any other channel`));
+  assert.deepEqual(p.allowedMentions, { parse: [] });
+  const { parseChannelIds, loadConfig } = require('../config');
+  assert.deepEqual(parseChannelIds(`${CHAT}, ${GENERAL},bad,${CHAT}`), [CHAT, GENERAL]);
+  const saved = { ...process.env };
+  try {
+    Object.assign(process.env, { DISCORD_TOKEN: ['A'.repeat(24), 'B'.repeat(6), 'C'.repeat(30)].join('.'), DISCORD_CLIENT_ID: '1563826219588386897', DISCORD_GUILD_ID: GUILD });
+    process.env.PIKO_CHAT_CHANNEL_IDS = `${CHAT},${GENERAL}`;
+    delete process.env.PIKO_CHAT_CHANNEL_ID;
+    assert.deepEqual(loadConfig().chatChannelIds, [CHAT, GENERAL]);
+    process.env.PIKO_CHAT_CHANNEL_IDS = GENERAL;
+    process.env.PIKO_CHAT_CHANNEL_ID = CHAT; // legacy still honoured
+    assert.deepEqual(loadConfig().chatChannelIds, [GENERAL, CHAT]);
+  } finally {
+    for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+    Object.assign(process.env, saved);
+  }
 });

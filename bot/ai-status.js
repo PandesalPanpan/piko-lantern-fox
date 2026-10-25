@@ -27,7 +27,7 @@ const count = usage && usage.date === today && Number.isInteger(usage.count) ? u
 console.log('Piko AI status (no secrets shown)');
 console.log(`  OPENROUTER_API_KEY configured : ${yes((env.OPENROUTER_API_KEY || '').trim())}`);
 console.log(`  OWNER_DISCORD_USER_ID set     : ${yes((env.OWNER_DISCORD_USER_ID || '').trim())}`);
-console.log(`  PIKO_CHAT_CHANNEL_ID set      : ${yes((env.PIKO_CHAT_CHANNEL_ID || '').trim())} (no-mention channel mode)`);
+console.log(`  Chat channel(s) configured    : ${yes(((env.PIKO_CHAT_CHANNEL_IDS || '') + (env.PIKO_CHAT_CHANNEL_ID || '')).trim())} (no-mention channel mode)`);
 console.log(`  Kill switch (run/ai-disabled) : ${fs.existsSync(path.join(run, 'ai-disabled')) ? 'ON (AI disabled)' : 'off'}`);
 console.log(`  Demo session active           : ${yes(active)}`);
 if (active) console.log(`  Demo expires                  : ${formatManila(endMs)}`);

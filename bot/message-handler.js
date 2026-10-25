@@ -1,11 +1,13 @@
 'use strict';
 // messageCreate handler. Reacts to (a) a direct @mention of Piko anywhere in the configured server and
-// (b) every human message in the ONE dedicated chat channel (if configured), without a mention.
+// (b) every human message in the dedicated chat channel(s) (if configured), without a mention.
 // Everything else is ignored silently (no response, no logging of content).
 const NO_PING = { parse: [], repliedUser: false };
 
-function createMessageHandler({ ai, guildId, getBotId, chatChannelId }) {
-  const dedicated = /^\d{15,25}$/.test(String(chatChannelId || '')) ? String(chatChannelId) : '';
+function createMessageHandler({ ai, guildId, getBotId, chatChannelIds, chatChannelId }) {
+  // Channels where Piko answers without a mention: a list, or the legacy single id (comma-separated also accepted).
+  const raw0 = Array.isArray(chatChannelIds) ? chatChannelIds : String(chatChannelIds || chatChannelId || '').split(/[\s,;]+/);
+  const dedicated = new Set(raw0.map((x) => String(x).trim()).filter((x) => /^\d{15,25}$/.test(x)));
   async function sendReply(message, p) {
     const options = { content: p.content, allowedMentions: NO_PING };
     try {
@@ -34,7 +36,7 @@ function createMessageHandler({ ai, guildId, getBotId, chatChannelId }) {
     if (/@(?:everyone|here)\b/i.test(raw)) return null;
     const tokenRe = new RegExp(`<@!?${botId}>`, 'g'); // an explicit mention token; a reply-ping alone does not count
     const hasToken = tokenRe.test(raw);
-    const inDedicated = dedicated !== '' && String(message.channelId) === dedicated;
+    const inDedicated = dedicated.has(String(message.channelId));
 
     if (inDedicated) {
       // Only ordinary messages and replies (not slash-command echoes, joins, pins, ...).

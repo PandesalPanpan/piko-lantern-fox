@@ -2,7 +2,7 @@
 
 Piko is a small digital fox born inside the final glowing pixel of a forgotten website. Piko travels between abandoned web pages, collecting lost ideas, unfinished projects, and story fragments in a magical lantern, then hands out **creative sparks** and **small, achievable quests** on Discord.
 
-Piko is a bot and never pretends to be human. It answers slash commands and, **only during a controlled owner-started demo**, optional AI conversation through OpenRouter's free router: a direct @mention in any server channel, or any message at all in the one dedicated `#piko-chat` channel. It does not send DMs, join voice, or store any message content.
+Piko is a bot and never pretends to be human. It answers slash commands and, **only during a controlled owner-started demo**, optional AI conversation through OpenRouter's free router: a direct @mention in any server channel, or any message at all in the dedicated chat channels (`#piko-chat` and `#general`). It does not send DMs or join voice, and it does not write message content to disk or logs; the last 6 messages per member are held only in memory.
 
 | Command  | What it does |
 |----------|--------------|
@@ -19,21 +19,22 @@ Piko is a bot and never pretends to be human. It answers slash commands and, **o
 
 ## AI conversation (OpenRouter free router)
 
-AI chat is **off by default** every time the process starts. There is no `/chat` command; talking to Piko works like this:
+AI chat is **off unless an owner starts a demo**; a restart within an active demo's hour resumes it (`run/demo.json` holds the start/end times only), while the per-user counters reset on restart. There is no `/chat` command; talking to Piko works like this:
 
 1. The owner (`OWNER_DISCORD_USER_ID`) runs `/demo-start`. Piko announces in character that the AI lantern is lit until a time shown in `UTC+8 (Asia/Manila)` (plus a Discord timestamp).
-2. Members write a server message that **directly mentions Piko** (or, in the dedicated `#piko-chat` channel, just write their message) and includes a question, e.g. `@Piko Give me a tiny creative project for tonight.`
+2. Members write a server message that **directly mentions Piko** (or, in the dedicated channels `#piko-chat` and `#general`, just write their message) and includes a question, e.g. `@Piko Give me a tiny creative project for tonight.`
 3. After one hour (or `/demo-stop`) AI turns off again. Scripted commands (`/hello /lore /quest /spark /about /forget`) work the whole time.
 
-**Dedicated chat channel (`PIKO_CHAT_CHANNEL_ID`).** In the one channel whose ID is set in `PIKO_CHAT_CHANNEL_ID` (e.g. `#piko-chat`), Piko replies to every human message **without a mention**, but only while a demo is active. Everywhere else a mention is still required. If the variable is unset, this mode is off.
+**Dedicated chat channels (`PIKO_CHAT_CHANNEL_IDS`).** In the channels whose IDs are listed (comma-separated) in `PIKO_CHAT_CHANNEL_IDS` (currently `#piko-chat` and `#general`), Piko replies to every human message **without a mention**, but only while a demo is active. The older single `PIKO_CHAT_CHANNEL_ID` is still read and merged into the list. Everywhere else a mention is still required. If neither variable is set, this mode is off. The `/demo-start` announcement names the channels, e.g. "Chat with me in #piko-chat or #general without a mention, or mention me in any other channel". Limits (2/min per member, 10/session, 40/day) are shared across all channels.
 - Ignored in that channel: bots, webhooks, Piko itself, system messages (joins, command echoes), attachment-only/empty messages, `@everyone`/`@here`, and any message that mentions other users or roles or replies to another person (human-to-human talk). Edits are not handled.
 - While no demo is active, AI is disabled or the key is missing, Piko stays **silent** for unmentioned messages (a message that does mention Piko still gets the resting text).
+- Static replies (greeting, "busy", the over-500-character notice, refusals, the resting text, limit notices) are sent at most once per member per ~20 seconds; extra messages inside the window are silently ignored (no request is made either way).
 - If a member hits their rate limit, the cool-down notice is sent at most once per member per 60 s, otherwise Piko stays silent (no request is made). When the daily limit is reached, one resting-style notice is sent at most every 10 minutes for the channel.
 - All other rules are identical: same limits, per-member in-memory context, refusals, output sanitising, one in-flight request per member and message-id dedupe.
 
-**Why the Message Content intent.** Piko's intents are Guilds + Guild Messages + **Message Content**. Message Content is privileged (enabled in the Developer Portal by the owner) and is needed only to read unmentioned messages in the dedicated channel. Outside that channel Piko still looks only at messages that directly mention it, and it never stores message text.
+**Why the Message Content intent.** Piko's intents are Guilds + Guild Messages + **Message Content**. Message Content is privileged (enabled in the Developer Portal by the owner) and is needed only to read unmentioned messages in the dedicated channels. The process receives the text of all messages in the server, but only the dedicated channels and direct mentions are acted on; nothing is logged and message text is never written to disk.
 
-Mention trigger rules (everywhere except the dedicated channel): Piko only reacts to a human's message in the configured server that contains an explicit `<@Piko>` mention. Normal messages, other bots, webhooks, DMs, `@everyone`/`@here`, role mentions and plain reply-pings are ignored. A mention with no question gets a greeting; while AI is off, a mention gets "My AI lantern is resting right now, but my slash commands still work." (no request is made). The text of every message is only used transiently to build the request and is never stored or logged.
+Mention trigger rules (everywhere except the dedicated channels): Piko only reacts to a human's message in the configured server that contains an explicit `<@Piko>` mention. Normal messages, other bots, webhooks, DMs, `@everyone`/`@here`, role mentions and plain reply-pings are ignored. A mention with no question (an empty mention) gets the greeting; while AI is off, a mention gets "My AI lantern is resting right now, but my slash commands still work." (no request is made). The text of a message is used only transiently to build the request; it is not written to disk or logs (the last 6 messages per member live in memory only).
 
 **Model and endpoint.** `POST https://openrouter.ai/api/v1/chat/completions` with the hard-coded model `openrouter/free`. There is no model setting, no fallback list and no paid model. The actual model OpenRouter picks can vary per reply; only its identifier is logged. OpenRouter is used only for AI conversation, never for scripted commands. The request has `max_tokens` 400 (headroom for hidden reasoning; the posted reply is still hard-limited to about 600 characters), `reasoning: {effort: "low"}`, temperature 0.8, no streaming, no tools, a 30 s timeout and carries only Piko's system instruction plus that one member's last 6 messages.
 
@@ -52,7 +53,7 @@ Mention trigger rules (everywhere except the dedicated channel): Piko only react
 **Privacy and safety.**
 - Please don't share passwords, keys or personal details with Piko. Messages that ask for secrets or the system prompt, contain emails, card-like numbers, token-like strings or "my password is ...", or ask for malware/credential theft are refused **locally in character**: no OpenRouter call, no quota use, nothing stored.
 - Conversation context is an in-memory map per member (last 6 messages, never mixed between members, never written to disk or git). It is erased by `/forget` (that member), `/demo-stop` and expiry (everyone) and after 1 hour of inactivity.
-- Model output is untrusted: `@everyone`/`@here` and user/role/channel mentions are neutralised, `allowedMentions` is `{ parse: [] }`, bare URLs are wrapped in `<>`, code fences are removed, secret-looking strings and the real token/key values are redacted, and replies are hard-limited to 600 characters (trimmed at a sentence boundary where possible; the system prompt asks for 2-4 sentences).
+- Model output is untrusted: `@everyone`/`@here` and user/role/channel mentions are neutralised, `allowedMentions` is `{ parse: [] }`, URLs and Discord invite links (`http(s)://`, `www.`, `discord.gg/`, `discord.com/invite/`) are removed from the text, code fences are removed, secret-looking strings and the real token/key values are redacted, and the whole posted message is hard-limited to 600 characters **including the one-time privacy note** (trimmed at a sentence boundary where possible; the system prompt asks for 2-4 sentences).
 - `run/demo.json` holds only the demo start/end times (so a restart within the hour restores it). `run/usage.json` holds only counts. Logs hold only counts, timestamps, latency, success/failure and the model id, never message text, replies, user ids or credentials.
 - The free router's data handling is OpenRouter's and the selected model provider's, not Piko's. Treat everything sent as potentially visible to them.
 
@@ -70,6 +71,8 @@ rm /workspace/piko/run/ai-disabled        # allow AI again (a new /demo-start is
 ```
 
 Removing `OPENROUTER_API_KEY` from `.env` and running `./restart.sh` also turns AI off completely.
+
+**On the OpenRouter key, set a $0 credit limit and keep auto top-up off.** Piko only ever requests `openrouter/free`, but a spending cap and no auto top-up make sure the key can never cost money.
 
 **Add, revoke or replace the OpenRouter key.** Create or revoke keys in the OpenRouter dashboard under *Keys*. Put the new key in `.env` as `OPENROUTER_API_KEY=` using an editor (not `echo`, not a shell history), keep `chmod 600 .env`, then `./restart.sh`. Never paste the key into chat, issues, screenshots or code. Without a key Piko works normally and `/demo-start` replies that AI can't start.
 
@@ -93,7 +96,7 @@ piko/
 ├── site/              static character page (no build step, relative paths, GitHub Pages friendly)
 ├── proof/             site screenshots
 ├── start.sh stop.sh restart.sh status.sh supervisor.sh
-├── .env.example       placeholders only (incl. PIKO_CHAT_CHANNEL_ID)
+├── .env.example       placeholders only (incl. PIKO_CHAT_CHANNEL_IDS)
 └── run/               pidfile, log, demo.json, usage.json, optional ai-disabled (git-ignored, created at runtime)
 ```
 
@@ -114,7 +117,7 @@ npm install
    cp .env.example .env
    chmod 600 .env
    ```
-2. Edit `.env` with an editor (not with `echo` or a command that puts the token in your shell history) and fill in `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `OWNER_DISCORD_USER_ID` and optionally `PAGE_URL`, `OPENROUTER_API_KEY` and `PIKO_CHAT_CHANNEL_ID`. `DISCORD_CLIENT_ID` is already filled in; it is public. Variable names: `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID`, `PAGE_URL`, `OWNER_DISCORD_USER_ID`, `OPENROUTER_API_KEY`, `PIKO_CHAT_CHANNEL_ID`.
+2. Edit `.env` with an editor (not with `echo` or a command that puts the token in your shell history) and fill in `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `OWNER_DISCORD_USER_ID` and optionally `PAGE_URL`, `OPENROUTER_API_KEY` and `PIKO_CHAT_CHANNEL_IDS` (comma-separated). `DISCORD_CLIENT_ID` is already filled in; it is public. Variable names: `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID`, `PAGE_URL`, `OWNER_DISCORD_USER_ID`, `OPENROUTER_API_KEY`, `PIKO_CHAT_CHANNEL_IDS` (legacy: `PIKO_CHAT_CHANNEL_ID`).
 3. `.env` is listed in `.gitignore`. Never paste the token into chat, screenshots, issues, or code. If it is ever exposed, reset it in the Developer Portal (Bot → Reset Token) and update `.env`.
 
 The bot only reads the token from the `DISCORD_TOKEN` environment variable (loaded from `/workspace/piko/.env`). If a required variable is missing, it exits with a clear message that names the variable but never prints any value.
@@ -178,7 +181,7 @@ https://discord.com/oauth2/authorize?client_id=1563826219588386897&scope=bot%20a
 | "The free lantern-light is flickering" | The free router is unavailable, slow or rate-limited (free models change). Wait and retry; the log shows only the status category. |
 | "The free lantern-light flickered and gave no words" | The free router picked a reasoning model that spent its small token budget thinking (empty reply), or a safety/guard classifier model. Piko never posts those: it re-asks once (counted in the limits), then shows this line. Piko sends the documented `reasoning: {effort: "low"}` option to limit hidden reasoning and never posts reasoning text. The log shows `ai response unusable reason=empty/guard/classifier`, `finish=` and token counts only. Just try again. |
 | "The lantern needs a moment to cool" | You hit the per-member limits (2/min, 10/session). Wait a minute. |
-| Piko ignores a message in `#piko-chat` | Demo not active (it stays silent on purpose), `PIKO_CHAT_CHANNEL_ID` unset/wrong, the message mentions other people/roles, or the Message Content intent is not enabled in the Developer Portal (Piko then exits with a disallowed-intents error). |
+| Piko ignores a message in `#piko-chat` or `#general` | Demo not active (it stays silent on purpose), the channel id is missing from `PIKO_CHAT_CHANNEL_IDS`, the message mentions other people/roles, or the Message Content intent is not enabled in the Developer Portal (Piko then exits with a disallowed-intents error). |
 | Mention gets no reply at all | Piko ignores mentions that are only reply-pings, role mentions, `@everyone`/`@here`, bots and DMs. Type `@Piko` directly (choose Piko in the autocomplete) in the configured server. Message Content is enabled, so a mention should always arrive with its text. |
 | Key expired or revoked | Replace it as described above and `./restart.sh`. |
 | `./start.sh` says already running | Use `./restart.sh`. |
@@ -188,13 +191,13 @@ https://discord.com/oauth2/authorize?client_id=1563826219588386897&scope=bot%20a
 
 - Piko runs on the **Grok Bot cloud computer**. It is only online while that computer is running and the process is alive; the supervisor restarts it after crashes, but it will not survive the computer being stopped or reset, and it will not start by itself after a reboot (run `./start.sh`).
 - Commands are registered for one server only (guild-specific).
-- No database: no message content is stored. The shuffle-bag order and AI conversation memory reset when the bot restarts. Per-demo request counters also reset on restart (only the demo window and the daily count are persisted).
+- No database: message content is not written to disk or logs (the last 6 messages per member are held only in memory). The shuffle-bag order and AI conversation memory reset when the bot restarts. A live demo is restored after a restart within its hour (`run/demo.json` holds start/end times only), but the per-user counters reset on restart; only the demo window and the daily count are persisted.
 - Free models can be slow, change, or disappear; AI replies are best effort.
 
 ## Security notes
 
 - Token only via `DISCORD_TOKEN` in `.env` (mode 600), excluded from git; `.env.example` has placeholders only.
-- Intents: Guilds + GuildMessages + MessageContent. The single `messageCreate` handler reacts only to a direct mention in the configured server, or to a human message in the one dedicated channel, during an active demo, and never stores or logs message text; there is no `messageUpdate` handler, no DMs, no voice.
+- Intents: Guilds + GuildMessages + MessageContent. The single `messageCreate` handler reacts only to a direct mention in the configured server, or to a human message in a dedicated channel, during an active demo, and never writes message text to disk or logs; there is no `messageUpdate` handler, no DMs, no voice.
 - `OPENROUTER_API_KEY` lives only in `.env`; it is sent only as a Bearer header to `openrouter.ai`, never logged, and redacted from any output.
 - Fixed model `openrouter/free`; at most 40 requests a day; kill switch `run/ai-disabled`.
 - Every reply sets `allowedMentions: { parse: [] }`; no mass mentions.
