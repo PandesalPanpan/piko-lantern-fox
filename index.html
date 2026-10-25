@@ -92,7 +92,7 @@
       <div class="wrap">
         <div class="section-head">
           <h2 id="abilities-title">What Piko can do</h2>
-          <p class="section-intro">Piko only answers when you call, by slash command or, during an AI demo, by a mention (or by any message in its dedicated chat channels, #piko-chat and #general). It never messages you first and does not write message content to disk or logs; the last 6 messages per member are held only in memory.</p>
+          <p class="section-intro">Piko only answers when you call, by slash command or, during an AI demo, by a mention (or by any message in its dedicated chat channels, #piko-chat and #general). It never messages you first and does not write message content to disk or logs; the last 12 messages per member are held only in memory.</p>
         </div>
         <ul class="card-grid">
           <li class="card"><span class="icon" aria-hidden="true">&#10022;</span><h3>Hand out sparks</h3><p>Short creative prompts and project ideas for writing, art, code, and more.</p></li>
@@ -204,7 +204,7 @@
             <figure class="reply" aria-label="Example reply to /demo-start">
               <div class="who"><img src="assets/piko.svg" alt="" width="26" height="26"> Piko <span class="badge">APP</span></div>
               <p>My AI lantern is lit! Chat with me in <strong>#piko-chat</strong> or <strong>#general</strong> without a mention, or mention me in any other channel with your question until Sun, Oct 25, 7:00 PM UTC+8 (Asia/Manila) (<em>7:00 PM</em>, <em>in an hour</em>).</p>
-              <p>Limits: 2 chats per person per minute, 10 per person this session, 40 per day for everyone. I only remember your last 6 messages, in memory, and <strong>/forget</strong> wipes them.<br>Please don&rsquo;t share passwords, keys or personal details with me.</p>
+              <p>Limits: 6 chats per person per minute, 40 per person this session, 45 per day for everyone. I only remember your last 12 messages, in memory, and <strong>/forget</strong> wipes them.<br>Please don&rsquo;t share passwords, keys or personal details with me.</p>
               <p class="foot">Anyone else who tries it gets a polite &ldquo;owner only&rdquo; reply.</p>
             </figure>
           </article>
@@ -237,7 +237,7 @@
 
         <div class="chat-how">
           <h3>How to talk with Piko</h3>
-          <p>To talk with Piko during an active demo, mention Piko in a server message and include your question. Outside the dedicated channels, every AI request must directly mention Piko. An empty mention gets a friendly greeting. Replies are hard-limited to 600 characters including the one-time privacy note.</p>
+          <p>To talk with Piko during an active demo, mention Piko in a server message and include your question. Outside the dedicated channels, every AI request must directly mention Piko. An empty mention gets a friendly greeting. Replies are hard-limited to 900 characters including the one-time privacy note. Piko talks casually, knows the current date and time in Manila (UTC+8), and says plainly that it is a fox-character bot powered by an AI model if you ask.</p>
           <p><strong>Dedicated channels:</strong> in <code class="inline-cmd">#piko-chat</code> and <code class="inline-cmd">#general</code>, Piko replies to every message from a member without a mention, but only while a demo is active. When no demo is running, Piko stays quiet there. Messages that mention other people or roles are skipped. Piko&rsquo;s process receives all message text in the server, but only these channels and direct mentions are acted on, and nothing is logged.</p>
           <figure class="reply" aria-label="Example message to Piko">
             <div class="who">You</div>
@@ -247,10 +247,10 @@
 
         <ul class="card-grid facts">
           <li class="card"><span class="icon" aria-hidden="true">&#9201;</span><h3>One-hour demos only</h3><p>AI is off unless an owner starts a demo. A live demo is restored after a restart within its hour, but the per-user counters reset on restart. AI replies are available only during an active, controlled one-hour demonstration. <code class="inline-cmd">/demo-start</code> and <code class="inline-cmd">/demo-stop</code> are owner-only. When no demo is running, Piko answers that the AI lantern is resting.</p></li>
-          <li class="card"><span class="icon" aria-hidden="true">&#128065;</span><h3>Message Content intent</h3><p>Piko has Discord&rsquo;s privileged Message Content intent enabled. It is needed only to read unmentioned messages in <code class="inline-cmd">#piko-chat</code> and <code class="inline-cmd">#general</code>. Everywhere else Piko answers only when mentioned. Message content is not written to disk or logs; the last 6 messages per member are held only in memory.</p></li>
+          <li class="card"><span class="icon" aria-hidden="true">&#128065;</span><h3>Message Content intent</h3><p>Piko has Discord&rsquo;s privileged Message Content intent enabled. It is needed only to read unmentioned messages in <code class="inline-cmd">#piko-chat</code> and <code class="inline-cmd">#general</code>. Everywhere else Piko answers only when mentioned. Message content is not written to disk or logs; the last 12 messages per member are held only in memory.</p></li>
           <li class="card"><span class="icon" aria-hidden="true">&#9889;</span><h3>OpenRouter free router</h3><p>AI requests use OpenRouter&rsquo;s free-model router (<code class="inline-cmd">openrouter/free</code>). The underlying free model may vary from one reply to the next, so Piko&rsquo;s personality comes from its instructions, not a single model.</p></li>
-          <li class="card"><span class="icon" aria-hidden="true">&#9998;</span><h3>Temporary memory</h3><p>Conversation context is temporary, kept in memory only, and separated per member: only your own last 6 messages, never written to disk. It is cleared by <code class="inline-cmd">/forget</code>, by <code class="inline-cmd">/demo-stop</code>, when the demo expires, and after an hour of inactivity.</p></li>
-          <li class="card"><span class="icon" aria-hidden="true">&#9873;</span><h3>Small, fair limits</h3><p>A couple of AI replies per member per minute, a handful per demo, and a daily cap for the whole server keep the free service free.</p></li>
+          <li class="card"><span class="icon" aria-hidden="true">&#9998;</span><h3>Temporary memory</h3><p>Conversation context is temporary, kept in memory only, and separated per member: only your own last 12 messages, never written to disk. It is cleared by <code class="inline-cmd">/forget</code>, by <code class="inline-cmd">/demo-stop</code>, when the demo expires, and after an hour of inactivity.</p></li>
+          <li class="card"><span class="icon" aria-hidden="true">&#9873;</span><h3>Small, fair limits</h3><p>Up to 6 AI replies per member per minute, 40 per member per demo, and a daily cap of 45 for the whole server keep the free service free. OpenRouter&rsquo;s free tier itself allows only about 50 requests a day, so that is the honest ceiling.</p></li>
           <li class="card"><span class="icon" aria-hidden="true">&#10084;</span><h3>Scripted commands always work</h3><p><code class="inline-cmd">/hello</code>, <code class="inline-cmd">/lore</code>, <code class="inline-cmd">/quest</code>, <code class="inline-cmd">/spark</code>, <code class="inline-cmd">/about</code> and <code class="inline-cmd">/forget</code> stay available while AI conversation is disabled.</p></li>
         </ul>
       </div>
