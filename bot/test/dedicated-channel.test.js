@@ -153,31 +153,31 @@ test('rate-limit notice: at most once per member per 60 s, otherwise silent and 
   const { env, handler } = setup();
   env.startDemo();
   const send = async () => { const m = msg(); await handler(m); return m.replies; };
-  await send(); await send();
-  assert.equal(env.calls.length, 2);
+  for (let i = 0; i < 6; i++) await send();
+  assert.equal(env.calls.length, 6);
   const first = await send();
   assert.equal(first[0].content, COOL);
   for (let i = 0; i < 5; i++) assert.equal((await send()).length, 0);
-  assert.equal(env.calls.length, 2);
+  assert.equal(env.calls.length, 6);
   // another member still gets their own notice, and their own answers
   const other = async () => { const m = msg({ fields: { author: { id: 'member-2', bot: false } } }); await handler(m); return m.replies; };
   assert.equal((await other()).length, 1);
   env.advance(61 * 1000);
-  assert.equal(env.calls.length >= 3, true);
+  assert.equal(env.calls.length >= 7, true);
   // after the window the member is answered again; a later limit hit can re-notify after 60 s
-  await send(); await send();
   const again = await send();
-  assert.ok(again.length === 0 || again[0].content === COOL);
+  assert.equal(again.length, 1);
+  assert.notEqual(again[0].content, COOL); // a fresh window: a real answer
 });
 
 test('daily limit: resting-style notice at most once per 10 minutes for the channel, otherwise silent', async () => {
   const { env, handler } = setup();
   env.startDemo();
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 45; i++) {
     const m = msg({ fields: { author: { id: `g${i}`, bot: false } } });
     await handler(m);
   }
-  assert.equal(env.calls.length, 40);
+  assert.equal(env.calls.length, 45);
   const ask = async (uid) => { const m = msg({ fields: { author: { id: uid, bot: false } } }); await handler(m); return m.replies; };
   const first = await ask('late1');
   assert.equal(first[0].content, DISABLED);
@@ -186,7 +186,7 @@ test('daily limit: resting-style notice at most once per 10 minutes for the chan
   assert.equal((await ask('late3')).length, 0);
   env.advance(2 * 60 * 1000);
   assert.equal((await ask('late4')).length, 1);
-  assert.equal(env.calls.length, 40);
+  assert.equal(env.calls.length, 45);
 });
 
 test('safety and limits apply identically: refusals are local; context per member; in-flight guard; dedupe; sanitising', async () => {
@@ -305,10 +305,9 @@ test('multi-channel: each listed channel works without a mention, a non-listed c
 test('multi-channel: limits are shared across channels, other rules unchanged', async () => {
   const { env, handler } = setupMulti([CHAT, GENERAL]);
   env.startDemo();
-  await handler(msg()); env.advance(1000);
-  await handler(msg({ fields: { channelId: GENERAL } })); env.advance(1000);
-  const third = msg({ fields: { channelId: GENERAL } }); await handler(third);
-  assert.equal(env.calls.length, 2); // per-user 2/min shared across both channels
+  for (let i = 0; i < 6; i++) { await handler(msg({ fields: { channelId: i % 2 ? GENERAL : CHAT } })); env.advance(1000); }
+  const seventh = msg({ fields: { channelId: GENERAL } }); await handler(seventh);
+  assert.equal(env.calls.length, 6); // per-user 6/min shared across both channels
   // no demo -> silent, bots ignored, @everyone ignored
   const off = setupMulti([CHAT, GENERAL]);
   const quiet = msg({ fields: { channelId: GENERAL } }); await off.handler(quiet);

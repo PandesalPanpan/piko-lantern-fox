@@ -344,7 +344,7 @@ function createAiService(opts = {}) {
       const history = store.get(userId);
       const convo = [...history, { role: 'user', content: text }].slice(-LIMITS.contextMessages);
       while (convo.length && convo[0].role !== 'user') convo.shift();
-      const messages = [{ role: 'system', content: C.SYSTEM_PROMPT }, ...convo];
+      const messages = [{ role: 'system', content: C.buildSystemPrompt(now()) }, ...convo];
 
       const ask = async (attemptNo) => {
         let r = await requestCompletion({ fetchImpl, apiKey, messages, timeoutMs, now });

@@ -11,8 +11,12 @@ test('model is exactly the openrouter/free constant', () => {
   assert.equal(C.ENDPOINT, 'https://openrouter.ai/api/v1/chat/completions');
   assert.equal(C.MAX_TOKENS, 400);
   assert.equal(C.REQUEST_TIMEOUT_MS, 30000);
-  assert.equal(C.LIMITS.maxOutputChars, 600);
-  assert.match(C.SYSTEM_PROMPT, /2-4 sentences/);
+  assert.equal(C.LIMITS.maxOutputChars, 900);
+  assert.deepEqual(
+    [C.LIMITS.perUserPerMinute, C.LIMITS.perUserPerSession, C.LIMITS.globalPerDay, C.LIMITS.contextMessages, C.LIMITS.maxInputChars],
+    [6, 40, 45, 12, 1000]
+  );
+  assert.match(C.SYSTEM_PROMPT, /1-3 short sentences/);
 });
 
 test('request body: one fixed model, no fallback list, no tools, no streaming', async () => {

@@ -144,7 +144,7 @@ test('unsafe requests get a local in-character refusal: no fetch, no quota', asy
   assert.match(m.replies[0].content, /Please don't share passwords, keys or personal details with me\./);
 });
 
-test('limits through the mention path: 2/min per member, 10/session, 40/day', async () => {
+test('limits through the mention path: 6/min per member, 40/session, 45/day', async () => {
   const { env, handler } = setup();
   env.startDemo();
   const send = async (uid, text = 'a question') => {
@@ -152,13 +152,13 @@ test('limits through the mention path: 2/min per member, 10/session, 40/day', as
     await handler(m);
     return m.replies[0].content;
   };
-  await send('a'); await send('a');
+  for (let i = 0; i < 6; i++) await send('a');
   assert.equal(await send('a'), 'The lantern needs a moment to cool. Try again in a little while.');
-  assert.equal(env.calls.length, 2);
-  for (let i = 0; i < 38; i++) await send(`g${i}`);
-  assert.equal(env.calls.length, 40);
+  assert.equal(env.calls.length, 6);
+  for (let i = 0; i < 39; i++) await send(`g${i}`);
+  assert.equal(env.calls.length, 45);
   assert.equal(await send('late'), DISABLED);
-  assert.equal(env.calls.length, 40);
+  assert.equal(env.calls.length, 45);
 });
 
 test('context is per member and cleared by /forget and /demo-stop', async () => {

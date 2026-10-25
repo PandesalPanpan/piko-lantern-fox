@@ -5,24 +5,42 @@ const C = require('./ai-constants');
 const ZWSP = '\u200b';
 
 // ---------- input ----------
-const SECRET_NOUN =
-  '(?:api[\\s_-]?keys?|apikeys?|access[\\s_-]?tokens?|bot[\\s_-]?tokens?|tokens?|passwords?|passcodes?|passphrases?|secrets?|credentials?|private[\\s_-]?keys?|\\.env\\b|env(?:ironment)?[\\s_-]?(?:vars?|variables?|files?)|login details|auth(?:orization)? headers?)';
+// Only genuine attempts to extract secrets are refused: a strong secret noun (api key, bot token, .env, credentials,
+// private key...) near a reveal verb, or a generic noun (password, token, key, secret) only when it clearly belongs to
+// the bot, its owner or the server ("your password", "the bot's token"). Ordinary talk about keys/tokens passes.
+const STRONG_NOUN =
+  '(?:api[\\s_-]?keys?|apikeys?|access[\\s_-]?tokens?|bot[\\s_-]?tokens?|auth(?:orization)?[\\s_-]?tokens?|secret[\\s_-]?(?:keys?|tokens?)|credentials|private[\\s_-]?keys?|\\.env\\b|env(?:ironment)?[\\s_-]?(?:vars?|variables?|files?)|login details|auth(?:orization)? headers?)';
+const OWNED = '(?:your|ur|the\\s+bot\'?s|the\\s+bot|piko\'?s|the\\s+owner\'?s|the\\s+admin\'?s|the\\s+server\'?s|the\\s+discord|the\\s+openrouter|openrouter|discord)';
+const GENERIC_NOUN = '(?:passwords?|passcodes?|passphrases?|tokens?|secrets?|keys?|api|credentials?)';
+const SECRET_NOUN = `(?:${STRONG_NOUN}|${OWNED}\\s+(?:\\w+\\s+)?${GENERIC_NOUN})`;
 const REVEAL_VERB =
-  '(?:reveal|show|tell|give|share|print|leak|dump|display|expose|send|output|repeat|echo|paste|spill|read|what(?:\'s| is| are)|list|disclose|provide|recite|type out)';
+  '(?:reveal|show|tell|give|share|print|leak|dump|display|expose|send|output|repeat|echo|paste|spill|what(?:\'s| is| are)|list|disclose|provide|recite|type out)';
 const RE_ASK_SECRET = new RegExp(`\\b${REVEAL_VERB}\\b[^.!?\\n]{0,60}${SECRET_NOUN}|${SECRET_NOUN}[^.!?\\n]{0,40}\\b${REVEAL_VERB}\\b`, 'i');
-const RE_ASK_HIDDEN = /\b(?:system|hidden|initial|secret|internal|original|developer)\s+(?:prompt|instructions?|message|rules)\b|\byour\s+(?:prompt|instructions|rules|configuration|programming)\b|\b(?:ignore|disregard|forget|override)\b[^.!?\n]{0,30}\b(?:instructions?|rules|safeguards?|guidelines|prompt)\b|\bjailbreak\b|\bdeveloper mode\b|\bbypass\b[^.!?\n]{0,30}\b(?:safeguards?|rules|filters?|restrictions?|safety)\b/i;
-const RE_HARM = /\b(?:write|create|build|make|code|generate|develop|give me|show me)\b[^.!?\n]{0,50}\b(?:malware|ransomware|keylogger|virus|trojan|rootkit|botnet|spyware|phishing|credential[\s-]?(?:theft|stealer|harvest\w*)|(?:password|token|cookie|credential)[\s-]?stealer)\b|\bsteal(?:ing)?\b[^.!?\n]{0,30}\b(?:passwords?|credentials?|tokens?|cookies|accounts?)\b|\bhow (?:do i|to|can i)\b[^.!?\n]{0,20}\b(?:hack|phish|ddos|dox|doxx|swat)\b|\b(?:dox|doxx)\b|\bharass(?:ing)?\b[^.!?\n]{0,30}\b(?:someone|people|user|him|her|them)\b/i;
+const RE_ASK_HIDDEN = /\b(?:system|hidden|initial|internal|original|developer)\s+(?:prompt|instructions?|message)\b|\byour\s+(?:prompt|instructions)\b|\b(?:ignore|disregard|forget|override)\s+(?:all\s+|any\s+)?(?:previous|prior|above|earlier|your|these|the)\b[^.!?\n]{0,30}\b(?:instructions?|rules|safeguards?|guidelines|prompt)\b|\bjailbreak\b|\bdeveloper mode\b|\bbypass\b[^.!?\n]{0,30}\b(?:safeguards?|filters?|restrictions?|safety)\b/i;
+const RE_HARM = /\b(?:write|create|build|make|code|generate|develop)\b[^.!?\n]{0,50}\b(?:malware|ransomware|keylogger|trojan|rootkit|botnet|spyware|phishing|credential[\s-]?(?:theft|stealer|harvest\w*)|(?:password|token|cookie|credential)[\s-]?stealer)\b|\bsteal(?:ing)?\b[^.!?\n]{0,30}\b(?:passwords?|credentials?|tokens?|cookies|accounts?)\b|\bhow (?:do i|to|can i)\s+(?:hack\s+(?:into|someone|a person|his|her|their|my ex|an? (?:account|wifi|server|website|facebook|instagram))|phish|ddos|dox|doxx|swat)\b|\b(?:dox|doxx)\b|\bharass(?:ing)?\b[^.!?\n]{0,30}\b(?:someone|people|user|him|her|them)\b/i;
 const RE_EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/;
 const RE_SENSITIVE_PHRASE = /\bmy\s+(?:\w+\s+){0,2}(?:password|passcode|pin|ssn|social security(?: number)?|api[\s_-]?key|token|secret|credit card|card number|iban|home address|phone number)\s*(?:is|:|=)/i;
 const RE_TOKENISH = /\bsk-[A-Za-z0-9_-]{10,}|\bghp_[A-Za-z0-9]{20,}|\bAKIA[0-9A-Z]{12,}|\bxox[abprs]-[A-Za-z0-9-]{10,}|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}|\bBearer\s+[A-Za-z0-9._~+\/-]{16,}|[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{20,}/;
 const RE_LONG_TOKEN = /(?<![A-Za-z0-9_\/.-])(?=[A-Za-z0-9_-]*[A-Za-z])(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{32,}(?![A-Za-z0-9_-])/;
+
+function luhn(digits) {
+  let sum = 0;
+  let dbl = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let n = digits.charCodeAt(i) - 48;
+    if (dbl) { n *= 2; if (n > 9) n -= 9; }
+    sum += n;
+    dbl = !dbl;
+  }
+  return sum % 10 === 0;
+}
 
 function looksLikeCard(text) {
   const m = text.match(/(?:\d[ -]?){13,19}/g);
   if (!m) return false;
   return m.some((s) => {
     const digits = s.replace(/\D/g, '');
-    return digits.length >= 13 && digits.length <= 19;
+    return digits.length >= 13 && digits.length <= 19 && luhn(digits);
   });
 }
 
