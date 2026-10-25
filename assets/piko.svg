@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="t d">
+  <title id="t">Piko the Lantern Fox</title>
+  <desc id="d">A small orange fox sitting at night and holding a glowing cyan-blue lantern.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="75%">
+      <stop offset="0" stop-color="#1b2b66"/>
+      <stop offset="0.6" stop-color="#0e1a46"/>
+      <stop offset="1" stop-color="#060b24"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#7defff" stop-opacity="0.85"/>
+      <stop offset="0.35" stop-color="#2fc4f0" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#2fc4f0" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d9fbff"/>
+      <stop offset="0.5" stop-color="#6fe3ff"/>
+      <stop offset="1" stop-color="#2aa9e0"/>
+    </linearGradient>
+    <linearGradient id="fur" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff9a3c"/>
+      <stop offset="1" stop-color="#e8701a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- stars -->
+  <g fill="#cfe9ff">
+    <circle cx="70" cy="80" r="2.5"/><circle cx="130" cy="140" r="1.8"/><circle cx="440" cy="70" r="2.6"/>
+    <circle cx="400" cy="140" r="1.8"/><circle cx="90" cy="220" r="1.6"/><circle cx="250" cy="60" r="2"/>
+    <circle cx="470" cy="210" r="1.6"/><circle cx="330" cy="100" r="1.5"/><circle cx="40" cy="330" r="1.8"/>
+    <circle cx="190" cy="95" r="1.4"/><circle cx="480" cy="330" r="1.8"/>
+  </g>
+  <g fill="#ffd9a8"><path d="M60 150l3 8 8 3-8 3-3 8-3-8-8-3 8-3z"/><path d="M455 140l2.5 6 6 2.5-6 2.5-2.5 6-2.5-6-6-2.5 6-2.5z"/></g>
+  <!-- lantern glow -->
+  <circle cx="372" cy="300" r="150" fill="url(#glow)"/>
+  <!-- ground -->
+  <ellipse cx="256" cy="452" rx="190" ry="26" fill="#050a1e" opacity="0.7"/>
+  <ellipse cx="340" cy="450" rx="110" ry="14" fill="#2fc4f0" opacity="0.18"/>
+  <!-- tail -->
+  <path d="M175 430 C60 450 20 330 80 270 C95 250 120 250 120 270 C120 310 200 290 235 350 Z" fill="url(#fur)"/>
+  <path d="M80 270 C95 250 120 250 120 270 C121 285 128 296 142 306 C112 314 85 310 62 300 C64 288 70 278 80 270 Z" fill="#fff3e0"/>
+  <!-- body -->
+  <path d="M170 440 C150 380 175 330 235 325 C295 330 320 380 300 440 Z" fill="url(#fur)"/>
+  <path d="M215 440 C205 395 215 350 240 345 C265 350 275 395 265 440 Z" fill="#fff3e0"/>
+  <!-- feet -->
+  <ellipse cx="205" cy="442" rx="26" ry="12" fill="#3a1f12"/>
+  <ellipse cx="275" cy="442" rx="26" ry="12" fill="#3a1f12"/>
+  <!-- arm holding lantern -->
+  <path d="M292 352 C320 345 345 300 362 248" fill="none" stroke="#f07a1e" stroke-width="24" stroke-linecap="round"/>
+  <circle cx="364" cy="240" r="13" fill="#3a1f12"/>
+  <!-- lantern -->
+  <path d="M350 262 Q364 214 392 262" fill="none" stroke="#2a2f55" stroke-width="5" stroke-linecap="round"/>
+  <path d="M342 276 L356 258 L388 258 L402 276 Z" fill="#232a55"/>
+  <rect x="346" y="274" width="52" height="66" rx="10" fill="url(#glass)"/>
+  <ellipse cx="372" cy="312" rx="12" ry="18" fill="#ffffff" opacity="0.95"/>
+  <ellipse cx="372" cy="318" rx="6" ry="10" fill="#fff6c8"/>
+  <g stroke="#232a55" stroke-width="3.5"><line x1="372" y1="274" x2="372" y2="340"/><line x1="359" y1="274" x2="359" y2="340" opacity="0.5"/><line x1="385" y1="274" x2="385" y2="340" opacity="0.5"/></g>
+  <rect x="340" y="338" width="64" height="12" rx="4" fill="#232a55"/>
+  <!-- other arm -->
+  <path d="M205 350 C200 385 205 410 215 428" fill="none" stroke="#f07a1e" stroke-width="22" stroke-linecap="round"/>
+  <!-- ears -->
+  <path d="M150 168 L142 250 L212 214 Z" fill="url(#fur)"/>
+  <path d="M312 168 L320 250 L250 214 Z" fill="url(#fur)"/>
+  <path d="M155 192 L152 240 L195 218 Z" fill="#3a1f12"/>
+  <path d="M307 192 L310 240 L267 218 Z" fill="#3a1f12"/>
+  <!-- head -->
+  <path d="M128 258 C140 205 185 192 231 192 C277 192 322 205 334 258 C320 305 275 335 231 340 C187 335 142 305 128 258 Z" fill="url(#fur)"/>
+  <path d="M128 258 C150 300 190 305 231 292 C272 305 312 300 334 258 C322 305 275 335 231 340 C187 335 142 305 128 258 Z" fill="#fff3e0"/>
+  <!-- eyes lit by lantern -->
+  <ellipse cx="190" cy="262" rx="12" ry="15" fill="#2a1410"/>
+  <ellipse cx="272" cy="262" rx="12" ry="15" fill="#2a1410"/>
+  <circle cx="194" cy="257" r="4.5" fill="#ffffff"/>
+  <circle cx="276" cy="257" r="4.5" fill="#ffffff"/>
+  <circle cx="186" cy="268" r="2" fill="#8cecff"/>
+  <circle cx="268" cy="268" r="2" fill="#8cecff"/>
+  <!-- nose and smile -->
+  <ellipse cx="231" cy="305" rx="11" ry="8" fill="#2a1410"/>
+  <path d="M231 313 Q231 326 218 326 M231 313 Q231 326 244 326" fill="none" stroke="#2a1410" stroke-width="3" stroke-linecap="round"/>
+  <!-- cheek blush -->
+  <ellipse cx="160" cy="292" rx="12" ry="7" fill="#ff9a8a" opacity="0.45"/>
+  <ellipse cx="302" cy="292" rx="12" ry="7" fill="#ff9a8a" opacity="0.45"/>
+</svg>
