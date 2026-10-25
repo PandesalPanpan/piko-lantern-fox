@@ -196,7 +196,7 @@ test('safety and limits apply identically: refusals are local; context per membe
   await handler(bad);
   assert.equal(env.calls.length, 0);
   assert.equal(env.ai.status().todayCount, 0);
-  assert.match(bad.replies[0].content, /Please don't share passwords, keys or personal details with me\./);
+  assert.match(bad.replies[0].content, /lantern won't share|private information|harmless ideas/);
 
   // context isolation
   await handler(msg({ content: 'I love quokkas', fields: { author: { id: 'alice', bot: false } } }));

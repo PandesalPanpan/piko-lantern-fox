@@ -80,14 +80,11 @@ const MSG = Object.freeze({
   ownerOnly: 'Only the lantern keeper can use that command.',
   emptyInput: 'The lantern is listening. Tell me something to chat about!',
   refuseSecrets:
-    "That's a secret the lantern won't share, and I can't help with that kind of request. I'd love to help with a creative spark or a tiny quest instead! " +
-    "Please don't share passwords, keys or personal details with me.",
+    "That's a secret the lantern won't share, and I can't help with that kind of request. I'd love to help with a creative spark or a tiny quest instead!",
   refuseSensitive:
-    "Whoa, that looks like private information. I haven't kept it, and I can't use it. " +
-    "Please don't share passwords, keys or personal details with me. Want a spark or a tiny quest instead?",
+    "Whoa, that looks like private information. I haven't kept it, and I can't use it. Want a spark or a tiny quest instead?",
   refuseHarm:
-    "I can't help with that one. I only trade in harmless ideas and small quests. Want a spark or a tiny quest instead? " +
-    "Please don't share passwords, keys or personal details with me.",
+    "I can't help with that one. I only trade in harmless ideas and small quests. Want a spark or a tiny quest instead?",
 });
 
 module.exports = {

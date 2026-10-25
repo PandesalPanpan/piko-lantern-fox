@@ -141,7 +141,7 @@ test('unsafe requests get a local in-character refusal: no fetch, no quota', asy
   await handler(m);
   assert.equal(env.calls.length, 0);
   assert.equal(env.ai.status().todayCount, 0);
-  assert.match(m.replies[0].content, /Please don't share passwords, keys or personal details with me\./);
+  assert.match(m.replies[0].content, /lantern won't share|private information|harmless ideas/);
 });
 
 test('limits through the mention path: 6/min per member, 40/session, 45/day', async () => {
