@@ -196,18 +196,19 @@ test('reply falls back to a plain channel message if replying fails; errors neve
   assert.deepEqual(sent[0].allowedMentions, { parse: [] });
 });
 
-test('intents are exactly Guilds + GuildMessages; no MessageContent; no messageUpdate handler', () => {
-  assert.deepEqual([...INTENTS].sort((a, b) => a - b), [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages].sort((a, b) => a - b));
-  assert.ok(!INTENTS.includes(GatewayIntentBits.MessageContent));
+test('intents are exactly Guilds + GuildMessages + MessageContent; no messageUpdate handler', () => {
+  const want = [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent];
+  assert.deepEqual([...INTENTS].sort((a, b) => a - b), want.sort((a, b) => a - b));
   assert.ok(!INTENTS.includes(GatewayIntentBits.GuildMembers));
   assert.ok(!INTENTS.includes(GatewayIntentBits.GuildPresences));
+  assert.ok(!INTENTS.includes(GatewayIntentBits.DirectMessages));
   const index = fs.readFileSync(path.join(__dirname, '..', 'index.js'), 'utf8');
   assert.ok(index.includes('INTENTS'));
-  assert.ok(!/MessageContent/.test(index));
   assert.ok(!/messageUpdate|MessageUpdate/.test(index));
   assert.ok(!/GatewayIntentBits\.(GuildMembers|GuildPresences|DirectMessages)/.test(index));
   assert.match(index, /Events\.MessageCreate/);
   assert.match(index, /partials:\s*\[\]/);
+  assert.match(index, /chatChannelId:\s*cfg\.chatChannelId/);
 });
 
 test('register-commands: exactly 8 commands, no /chat', () => {

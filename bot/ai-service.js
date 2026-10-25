@@ -259,6 +259,19 @@ function createAiService(opts = {}) {
    * io: { messageId, userId, text (Piko mention tokens already stripped), reply(payload), startTyping?() -> stop() }
    * Every outcome is a reply to the member's own message; nothing here knows about Discord objects.
    */
+  const DAILY_NOTICE_MS = 10 * 60 * 1000;
+  const COOL_NOTICE_MS = 60 * 1000;
+  let dailyNoticeAt = null;
+  const coolNoticeAt = new Map();
+  /** Dedicated channel: at most one cool-down notice per member per 60 s. */
+  function coolNoticeDue(userId) {
+    const t = now();
+    for (const [k, v] of coolNoticeAt) if (t - v >= COOL_NOTICE_MS) coolNoticeAt.delete(k);
+    if (coolNoticeAt.has(userId)) return false;
+    coolNoticeAt.set(userId, t);
+    return true;
+  }
+
   async function converse(io) {
     const { messageId, reply } = io;
     const userId = String(io.userId);
@@ -270,10 +283,17 @@ function createAiService(opts = {}) {
     }
 
     const text = typeof io.text === 'string' ? io.text.trim() : '';
-    if (!text) return reply(payload(MSG.greeting));
+    // `quiet` = an unmentioned message in the dedicated channel: stay silent unless a short notice is due.
+    const quiet = io.quiet === true;
+    if (!text) return quiet ? undefined : reply(payload(MSG.greeting));
 
-    if (hardBlock() || !demo) return reply(payload(MSG.disabled));
-    if (usage.reached()) return reply(payload(MSG.disabled));
+    if (hardBlock() || !demo) return quiet ? undefined : reply(payload(MSG.disabled));
+    if (usage.reached()) {
+      if (!quiet) return reply(payload(MSG.disabled));
+      if (dailyNoticeAt !== null && now() - dailyNoticeAt < DAILY_NOTICE_MS) return undefined;
+      dailyNoticeAt = now();
+      return reply(payload(MSG.disabled));
+    }
 
     if (text.length > LIMITS.maxInputChars) {
       return reply(payload(`That's a lot for my little lantern. Please keep it under ${LIMITS.maxInputChars} characters.`));
@@ -282,14 +302,17 @@ function createAiService(opts = {}) {
     const refusal = checkInput(text);
     if (refusal) return reply(payload(refusalFor(refusal.kind))); // no fetch, no quota, not stored
 
-    if (inflight.has(userId)) return reply(payload(MSG.busy));
+    if (inflight.has(userId)) return quiet ? undefined : reply(payload(MSG.busy));
     inflight.add(userId);
     const sessionId = demo.id;
     const versionAtStart = store.version();
     let stopTyping = () => {};
     try {
       const first = reserve(userId);
-      if (!first.ok) return await reply(payload(limitMessage(first.reason)));
+      if (!first.ok) {
+        if (quiet && !coolNoticeDue(userId)) return undefined;
+        return await reply(payload(limitMessage(first.reason)));
+      }
       try { if (io.startTyping) stopTyping = io.startTyping() || stopTyping; } catch (_) { /* best effort */ }
 
       const history = store.get(userId);

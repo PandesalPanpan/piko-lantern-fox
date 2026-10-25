@@ -92,13 +92,13 @@
       <div class="wrap">
         <div class="section-head">
           <h2 id="abilities-title">What Piko can do</h2>
-          <p class="section-intro">Piko only answers when you call, by slash command or, during an AI demo, by a direct mention. It never messages you first and never collects anything about you.</p>
+          <p class="section-intro">Piko only answers when you call, by slash command or, during an AI demo, by a mention (or by any message in its dedicated chat channel). It never messages you first and never collects anything about you.</p>
         </div>
         <ul class="card-grid">
           <li class="card"><span class="icon" aria-hidden="true">&#10022;</span><h3>Hand out sparks</h3><p>Short creative prompts and project ideas for writing, art, code, and more.</p></li>
           <li class="card"><span class="icon" aria-hidden="true">&#9873;</span><h3>Offer tiny quests</h3><p>Safe, small challenges that take about 10 to 30 minutes to finish.</p></li>
           <li class="card"><span class="icon" aria-hidden="true">&#9998;</span><h3>Share lantern lore</h3><p>Pieces of Piko&rsquo;s story, one at a time, from the forgotten corners of the web.</p></li>
-          <li class="card"><span class="icon" aria-hidden="true">&#9711;</span><h3>Stay out of the way</h3><p>Slash commands, plus a direct mention during an AI demo. No reading other messages, no DMs, no pings.</p></li>
+          <li class="card"><span class="icon" aria-hidden="true">&#9711;</span><h3>Stay out of the way</h3><p>Slash commands, plus AI replies during a demo: by mention anywhere, or without one in <code class="inline-cmd">#piko-chat</code>. No DMs, no pings.</p></li>
         </ul>
       </div>
     </section>
@@ -178,7 +178,7 @@
               <p><strong>Character page:</strong> this page<br><strong>Server invite:</strong> discord.gg/zxkSerrxWd</p>
               <p>Created with Grok Bot.</p>
               <p>Optional AI replies are routed through OpenRouter during controlled demo sessions. Please do not send sensitive information to Piko.</p>
-              <p class="foot">To talk with Piko during an active demo, mention Piko in a server message and include your question.</p>
+              <p class="foot">To talk with Piko during an active demo, mention Piko in a server message and include your question. In the dedicated #piko-chat channel, Piko replies to every message without a mention while a demo is active.</p>
             </figure>
           </article>
 
@@ -236,7 +236,8 @@
 
         <div class="chat-how">
           <h3>How to talk with Piko</h3>
-          <p>To talk with Piko during an active demo, mention Piko in a server message and include your question. Every new AI request must directly mention Piko.</p>
+          <p>To talk with Piko during an active demo, mention Piko in a server message and include your question. Outside the dedicated channel, every AI request must directly mention Piko.</p>
+          <p><strong>Dedicated channel:</strong> in <code class="inline-cmd">#piko-chat</code>, Piko replies to every message from a member without a mention, but only while a demo is active. When no demo is running, Piko stays quiet there. Messages that mention other people or roles are skipped.</p>
           <figure class="reply" aria-label="Example message to Piko">
             <div class="who">You</div>
             <p><code class="inline-cmd">@Piko Give me a tiny creative project for tonight.</code></p>
@@ -245,6 +246,7 @@
 
         <ul class="card-grid facts">
           <li class="card"><span class="icon" aria-hidden="true">&#9201;</span><h3>One-hour demos only</h3><p>AI replies are available only during an active, controlled one-hour demonstration. <code class="inline-cmd">/demo-start</code> and <code class="inline-cmd">/demo-stop</code> are owner-only. When no demo is running, Piko answers that the AI lantern is resting.</p></li>
+          <li class="card"><span class="icon" aria-hidden="true">&#128065;</span><h3>Message Content intent</h3><p>Piko has Discord&rsquo;s privileged Message Content intent enabled. It is needed only to read unmentioned messages in <code class="inline-cmd">#piko-chat</code>. Everywhere else Piko answers only when mentioned, and message text is never stored or logged.</p></li>
           <li class="card"><span class="icon" aria-hidden="true">&#9889;</span><h3>OpenRouter free router</h3><p>AI requests use OpenRouter&rsquo;s free-model router (<code class="inline-cmd">openrouter/free</code>). The underlying free model may vary from one reply to the next, so Piko&rsquo;s personality comes from its instructions, not a single model.</p></li>
           <li class="card"><span class="icon" aria-hidden="true">&#9998;</span><h3>Temporary memory</h3><p>Conversation context is temporary, kept in memory only, and separated per member: only your own last 6 messages, never written to disk. It is cleared by <code class="inline-cmd">/forget</code>, by <code class="inline-cmd">/demo-stop</code>, when the demo expires, and after an hour of inactivity.</p></li>
           <li class="card"><span class="icon" aria-hidden="true">&#9873;</span><h3>Small, fair limits</h3><p>A couple of AI replies per member per minute, a handful per demo, and a daily cap for the whole server keep the free service free.</p></li>

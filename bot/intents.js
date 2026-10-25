@@ -1,9 +1,10 @@
 'use strict';
-// Gateway intents: Guilds + GuildMessages only. Both are non-privileged.
-// Discord still includes the text of messages that directly mention the bot, so no privileged
-// content intent is needed or enabled.
+// Gateway intents: Guilds + GuildMessages + MessageContent.
+// MessageContent is privileged (enabled in the Developer Portal by the owner). It is needed ONLY to read
+// unmentioned messages in the one dedicated chat channel (PIKO_CHAT_CHANNEL_ID) during an active demo.
+// Everywhere else Piko still requires a direct @mention and never looks at other messages.
 const { GatewayIntentBits } = require('discord.js');
 
-const INTENTS = [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages];
+const INTENTS = [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent];
 
 module.exports = { INTENTS };

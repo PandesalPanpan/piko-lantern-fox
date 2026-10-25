@@ -25,8 +25,9 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
-// Guilds + GuildMessages only (both non-privileged). Discord still delivers the text of messages
-// that directly mention the bot, so the privileged content intent stays off. No DMs, no voice.
+// Guilds + GuildMessages + MessageContent (privileged, approved): MessageContent is needed only to read
+// unmentioned messages in the one dedicated chat channel; elsewhere a direct mention is required.
+// No DMs, no voice.
 const client = new Client({
   intents: INTENTS,
   partials: [],
@@ -49,7 +50,7 @@ const ai = createAiService({
   log: (m) => log(m),
 });
 ai.start();
-const onMessage = createMessageHandler({ ai, guildId: cfg.guildId, getBotId: () => client.user && client.user.id });
+const onMessage = createMessageHandler({ ai, guildId: cfg.guildId, getBotId: () => client.user && client.user.id, chatChannelId: cfg.chatChannelId });
 
 // Each interaction id is handled once, even if the gateway redelivers it.
 const handled = new Map();

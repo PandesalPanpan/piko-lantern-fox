@@ -45,7 +45,9 @@ function loadConfig({ requireToken = true, requireGuild = true } = {}) {
   if (!SNOWFLAKE.test(ownerId)) ownerId = '';
   const openrouterKey = (env.OPENROUTER_API_KEY || '').trim();
 
-  return { token, clientId, guildId, pageUrl, ownerId, openrouterKey, secrets: [token, openrouterKey].filter(Boolean) };
+  let chatChannelId = (env.PIKO_CHAT_CHANNEL_ID || '').trim();
+  if (!SNOWFLAKE.test(chatChannelId)) chatChannelId = '';
+  return { token, clientId, guildId, pageUrl, ownerId, chatChannelId, openrouterKey, secrets: [token, openrouterKey].filter(Boolean) };
 }
 
 /** Remove the token from any text before it is logged. */
